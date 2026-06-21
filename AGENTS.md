@@ -116,11 +116,30 @@ bd create --type <type> --title "..."
 
 `cp`/`mv`/`rm` 등은 비대화형 플래그로(`-f`, `-rf`) — 확인 프롬프트 대기 방지.
 
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+## Beads Issue Tracker
+
+This project uses **bd (beads)** for issue tracking. Run `bd prime` for full workflow context.
+
+### Quick Reference
+
+```bash
+bd ready                # Find available work
+bd show <id>            # View issue details
+bd update <id> --claim  # Claim work
+bd close <id>           # Complete work
+```
+
+### Rules
+
+- Use `bd` for ALL task tracking — do NOT use TodoWrite/TaskCreate/markdown TODO.
+- Run `bd prime` for detailed command reference.
+
 ## Session Completion
 
-작업 세션 종료 시 local-first 체크리스트.
+작업 세션 종료 시 local-first 체크리스트. GitHub push 는 옵션(요청 시 `origin/dev`).
 
-1. **남은 작업 이슈화** — 후속 필요분 `bd create`
+1. **남은 작업 이슈화** — `bd create`
 2. **품질 게이트**(코드 변경 시) — `npm run test:unit` / `npm run build`
 3. **이슈 상태 갱신** — 완료 close, 진행 업데이트
 4. **로컬 커밋** — `git add` → `git commit`
@@ -128,53 +147,8 @@ bd create --type <type> --title "..."
 6. **정리·핸드오프** — 다음 세션 컨텍스트 제공
 
 **CRITICAL**:
+- 명시 요청 없이 `bd dolt push` 금지.
 - 명시 배포 요청 없이 `main` push/머지 금지.
 - 명시 요청 없이 force-push / 브랜치 rewrite 금지.
 - 무관한 로컬 변경 보존.
-
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
-## Beads Issue Tracker
-
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
-
-### Quick Reference
-
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
-```
-
-### Rules
-
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
-
-## Session Completion
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd dolt push
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
