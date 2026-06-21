@@ -133,6 +133,8 @@ bd close <id>           # Complete work
 ### Rules
 
 - Use `bd` for ALL task tracking — do NOT use TodoWrite/TaskCreate/markdown TODO.
+- Use `bd remember` as the **primary** store for persistent knowledge and decisions.
+- `MEMORY.md` is only for this project's **long-lived operating rules** — keep it short (it stops being read once it grows).
 - Run `bd prime` for detailed command reference.
 
 ## Session Completion
