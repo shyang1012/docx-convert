@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "docx_convert",
+  "project_id": "df84a27e-96c9-46f8-ab21-b53f3fe940f3"
+}

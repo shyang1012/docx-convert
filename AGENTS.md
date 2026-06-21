@@ -7,6 +7,8 @@
 - **Codex** = audit 에이전트 (findings-first 리뷰, plan/code/risk 검증)
 - **Gemini** = strategic architect (Why & Better Way, 장기 구조)
 
+이 프로젝트는 이슈 추적에 **bd (beads)** 를 쓴다. `bd onboard` 로 시작.
+
 **호칭 규칙**:
 - PM 은 한국어 대화에서 **승현님**, 운영 노트에선 **PM**
 - 코드 커밋·git author 는 **shyang**
@@ -49,11 +51,37 @@ npm run lint       # eslint --fix
 - `sharp` 는 SVG→PNG 래스터화에만 쓰이는 optional 네이티브 의존성. 브라우저 빌드는 null stub.
 - 코어는 브라우저 안전을 유지 — Node 전용 API 추가 시 빌드 영향 확인.
 
+## bd Quick Reference
+
+```bash
+bd ready                # 가능한 작업 찾기
+bd show <id>            # 이슈 상세
+bd update <id> --claim  # 작업 점유
+bd close <id>           # 완료
+bd note <id> "..."      # 진행 노트(핸드오프 로그)
+bd create --type <type> --title "..."
+```
+
+### bd Issue Types
+
+| Type | 용도 |
+|------|------|
+| `task` | 단발 실행(빌드/변환/튜닝 등) |
+| `bug` | 결함/회귀 수정 |
+| `feature` | 신규 기능(새 변환 경로·옵션·스타일 충실도·레이아웃 매핑) |
+| `chore` | 문서/CI/의존성/정리 |
+| `epic` | 다중 이슈 묶음(레이아웃 매핑 등 대형 작업) |
+| `decision` | 지속 정책/ADR(네이밍·라이선스·운영 규칙) |
+
+- 비단순 이슈 생성 시 `--type` 명시. `decision` 은 정책 유효한 동안 OPEN 유지.
+- **이슈 추적은 `bd` 로** — TodoWrite/마크다운 TODO 대신.
+
 ## Project Operating Policy
 
 개인 프로젝트 + local-first 워크플로우.
 
-- GitHub: `shyang1012/docx-convert`.
+- GitHub: `shyang1012/docx-convert` (public).
+- 로컬 git = 최종 코드 원장, 로컬 `.beads` = 최종 이슈 원장.
 - **`dev` = 일상 개발·백업 브랜치.** 평소 모든 작업·커밋은 `dev` 에서.
 - **`main` = 배포 브랜치.** `dev`→`main` 은 **배포를 결정했을 때만** 머지.
 - git push 는 명시 배포 요청이 없으면 **`origin/dev`** 로만.
@@ -87,3 +115,66 @@ npm run lint       # eslint --fix
 ## Non-Interactive Shell
 
 `cp`/`mv`/`rm` 등은 비대화형 플래그로(`-f`, `-rf`) — 확인 프롬프트 대기 방지.
+
+## Session Completion
+
+작업 세션 종료 시 local-first 체크리스트.
+
+1. **남은 작업 이슈화** — 후속 필요분 `bd create`
+2. **품질 게이트**(코드 변경 시) — `npm run test:unit` / `npm run build`
+3. **이슈 상태 갱신** — 완료 close, 진행 업데이트
+4. **로컬 커밋** — `git add` → `git commit`
+5. **옵션 백업** — `git push origin dev` (작업 브랜치만)
+6. **정리·핸드오프** — 다음 세션 컨텍스트 제공
+
+**CRITICAL**:
+- 명시 배포 요청 없이 `main` push/머지 금지.
+- 명시 요청 없이 force-push / 브랜치 rewrite 금지.
+- 무관한 로컬 변경 보존.
+
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+## Beads Issue Tracker
+
+This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
+
+### Quick Reference
+
+```bash
+bd ready              # Find available work
+bd show <id>          # View issue details
+bd update <id> --claim  # Claim work
+bd close <id>         # Complete work
+```
+
+### Rules
+
+- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
+- Run `bd prime` for detailed command reference and session close protocol
+- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+
+## Session Completion
+
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+
+**MANDATORY WORKFLOW:**
+
+1. **File issues for remaining work** - Create issues for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **PUSH TO REMOTE** - This is MANDATORY:
+   ```bash
+   git pull --rebase
+   bd dolt push
+   git push
+   git status  # MUST show "up to date with origin"
+   ```
+5. **Clean up** - Clear stashes, prune remote branches
+6. **Verify** - All changes committed AND pushed
+7. **Hand off** - Provide context for next session
+
+**CRITICAL RULES:**
+- Work is NOT complete until `git push` succeeds
+- NEVER stop before pushing - that leaves work stranded locally
+- NEVER say "ready to push when you are" - YOU must push
+- If push fails, resolve and retry until it succeeds
+<!-- END BEADS INTEGRATION -->
