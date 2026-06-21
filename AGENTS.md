@@ -9,6 +9,8 @@
 
 이 프로젝트는 이슈 추적에 **bd (beads)** 를 쓴다. `bd onboard` 로 시작.
 
+**메모리**: 메모리 인덱스는 `.claude/memory/MEMORY.md` (in-repo 평문, git 추적 → 머신·에이전트 독립). 지식·결정 본문은 bd (`bd remember`/`bd recall`) 가 주력. 세션 시작 시 `CLAUDE.md` 포인터 또는 `/시작` 이 이 인덱스를 읽는다. 홈 경로 자동 메모리에는 이 파일을 가리키는 포인터만 둔다.
+
 **호칭 규칙**:
 - PM 은 한국어 대화에서 **승현님**, 운영 노트에선 **PM**
 - 코드 커밋·git author 는 **shyang**
