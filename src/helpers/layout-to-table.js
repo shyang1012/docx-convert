@@ -20,6 +20,7 @@ import {
   getFlexDirection,
   getAlignItems,
   getJustifyContent,
+  parseGridTemplateColumns,
   hasBlockDecoration,
 } from '../utils/layout-style';
 import { pixelRegex, pointRegex, cmRegex, inchRegex } from '../utils/unit-conversion';
@@ -146,6 +147,56 @@ const blockDivToTable = (children, style) => {
   return createElement('table', tableStyle, [row], { align: 'left' });
 };
 
+// A grid track only yields a fixed cell width when it is an absolute length; fr/auto and
+// other non-absolute tracks get no width (review F-H2) — fixupColumnWidth can't size them.
+const cellWidthStyle = (track) => (isAbsoluteWidth(track) ? { width: track } : {});
+
+/**
+ * Convert a display:grid <div> into a table laid out row-major across grid-template-columns.
+ * Each track is a column; children fill left-to-right and short final rows are padded with
+ * empty cells so every row has the same column count — buildTableGridFromTableRow sizes the
+ * grid from the first row, so uniform row lengths keep columns aligned. (epic docx-convert-xku, T4)
+ *
+ * Limits: grid-template-columns must be explicit tracks. repeat() is not expanded (T1 parser)
+ * and is left as a no-op; grid-template-rows / explicit placement / span are out of scope.
+ *
+ * @param {VNode} node     original grid container
+ * @param {Array} children already-transformed children
+ * @param {Object} style   the container's parsed style object
+ * @returns {VNode} a synthesized <table>, or a no-op clone if tracks are unparseable
+ */
+const gridToTable = (node, children, style) => {
+  const columns = parseGridTemplateColumns(style);
+  const colCount = columns.length;
+  // Unparseable track list (none, or repeat() the T1 parser doesn't expand) → no-op.
+  if (colCount < 1 || columns.some((track) => track.includes('repeat('))) {
+    return cloneVNodeWithChildren(node, children);
+  }
+
+  // Drop blank text so pretty-printed whitespace doesn't leak into cells (review F-H1).
+  const cells = children.filter((child) => !(isVText(child) && child.text.trim() === ''));
+  if (cells.length === 0) return cloneVNodeWithChildren(node, children);
+
+  const rows = [];
+  for (let i = 0; i < cells.length; i += colCount) {
+    const rowCells = [];
+    for (let c = 0; c < colCount; c += 1) {
+      const child = cells[i + c];
+      const widthStyle = cellWidthStyle(columns[c]);
+      rowCells.push(
+        child === undefined
+          ? createElement('td', widthStyle, []) // pad a short final row
+          : createElement('td', widthStyle, [child])
+      );
+    }
+    rows.push(createElement('tr', {}, rowCells));
+  }
+
+  const nodeWidth = node.properties && node.properties.style && node.properties.style.width;
+  const tableStyle = nodeWidth ? { width: nodeWidth } : {};
+  return createElement('table', tableStyle, rows, { align: 'left' });
+};
+
 // Layout conversion targets block-level CONTAINERS only. Table parts (td/th/tr/table),
 // paragraphs and inline elements must never be re-wrapped — they have their own
 // background/border handling, and wrapping them corrupts the table structure.
@@ -182,14 +233,18 @@ const transformNode = (node) => {
     if (isFlexContainer(style) && getFlexDirection(style) === 'row') {
       return flexRowToTable(node, transformedChildren, style);
     }
+    // T4: grid → multi-column table. Checked before blockDiv so a decorated grid
+    // container becomes a grid (not a single wrapper cell).
+    if (isGridContainer(style)) {
+      return gridToTable(node, transformedChildren, style);
+    }
     // T5: visible background/border, non-flex/non-grid → single-cell table.
     if (hasBlockDecoration(style) && !isFlexContainer(style) && !isGridContainer(style)) {
       return blockDivToTable(transformedChildren, style);
     }
-    // ── T3/T4 extension point ──
+    // ── T3 extension point ──
     // if (isFlexContainer(style) && getFlexDirection(style) === 'column')
     //   return flexColumnToTable(node, transformedChildren, style);   // T3
-    // if (isGridContainer(style)) return gridToTable(node, transformedChildren, style); // T4
   }
 
   // No-op: deep-clone with transformed children.

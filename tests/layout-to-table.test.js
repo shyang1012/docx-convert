@@ -24,17 +24,6 @@ describe('layout-to-table (T1 scaffolding)', () => {
       expect(out.children).not.toBe(tree.children); // children array re-created
     });
 
-    test('grid container is preserved — NOT converted until T4', () => {
-      const tree = node(
-        'div',
-        { attributes: {}, style: { display: 'grid', 'grid-template-columns': '1fr 1fr' } },
-        [node('div', { attributes: {} }, [new VText('a')])]
-      );
-      const out = transformLayoutTree(tree);
-      expect(out.tagName).toBe('div');
-      expect(out.children[0].tagName).toBe('div');
-    });
-
     test('does not mutate the original tree', () => {
       const child = node('span', { attributes: {}, style: {} }, [new VText('a')]);
       const tree = node('div', { attributes: {}, style: { display: 'grid' } }, [child]);
@@ -272,6 +261,86 @@ describe('layout-to-table (T1 scaffolding)', () => {
     test('does not mutate original', () => {
       const child = node('strong', { attributes: {}, style: {} }, [new VText('t')]);
       const tree = divNode({ 'background-color': '#1a5276' }, [child]);
+      transformLayoutTree(tree);
+      expect(tree.tagName).toBe('div');
+      expect(tree.children[0]).toBe(child);
+    });
+  });
+
+  describe('gridToTable (T4) — grid → table', () => {
+    const cell = (text) => node('div', { attributes: {}, style: {} }, [new VText(text)]);
+    const gridNode = (cols, children, extra) =>
+      node('div', { attributes: {}, style: { display: 'grid', 'grid-template-columns': cols, ...extra } }, children);
+
+    test('2 cols, 2 children → 1 row of 2 cells; cell width = track', () => {
+      const out = transformLayoutTree(gridNode('350.5px 350.5px', [cell('발주처'), cell('공급처')]));
+      expect(out.tagName).toBe('table');
+      expect(out.children.length).toBe(1);
+      const tr = out.children[0];
+      expect(tr.tagName).toBe('tr');
+      expect(tr.children.length).toBe(2);
+      expect(tr.children.every((td) => td.tagName === 'td')).toBe(true);
+      expect(tr.children[0].properties.style.width).toBe('350.5px');
+    });
+
+    test('2 cols, 3 children → 2 rows; last row padded with empty td', () => {
+      const out = transformLayoutTree(gridNode('100px 100px', [cell('a'), cell('b'), cell('c')]));
+      expect(out.children.length).toBe(2);
+      expect(out.children[0].children.length).toBe(2);
+      expect(out.children[1].children.length).toBe(2); // padded to colCount
+      expect(out.children[1].children[1].children.length).toBe(0); // empty td
+    });
+
+    test('blank VText between children ignored (F-H1)', () => {
+      const out = transformLayoutTree(gridNode('100px 100px', [cell('a'), new VText('\n  '), cell('b')]));
+      expect(out.children.length).toBe(1);
+      expect(out.children[0].children.length).toBe(2);
+    });
+
+    test('1fr 1fr + 3 children → padded td and fr cells carry no width (F-H2)', () => {
+      const out = transformLayoutTree(gridNode('1fr 1fr', [cell('a'), cell('b'), cell('c')]));
+      expect(out.children.length).toBe(2);
+      const padTd = out.children[1].children[1];
+      expect(padTd.children.length).toBe(0);
+      expect(padTd.properties.style.width).toBeUndefined(); // 1fr is not absolute
+      expect(out.children[0].children[0].properties.style.width).toBeUndefined();
+    });
+
+    test('single column → one row per child', () => {
+      const out = transformLayoutTree(gridNode('200px', [cell('a'), cell('b')]));
+      expect(out.children.length).toBe(2);
+      expect(out.children[0].children.length).toBe(1);
+    });
+
+    test('repeat() or missing tracks → no-op (stays div)', () => {
+      expect(transformLayoutTree(gridNode('repeat(2, 1fr)', [cell('a'), cell('b')])).tagName).toBe('div');
+      expect(
+        transformLayoutTree(node('div', { attributes: {}, style: { display: 'grid' } }, [cell('a')])).tagName
+      ).toBe('div');
+    });
+
+    test('grid child that becomes a table (T5 box) nests inside the cell', () => {
+      const out = transformLayoutTree(
+        gridNode('100px 100px', [
+          node('div', { attributes: {}, style: { 'border-top-width': '1px', 'border-top-style': 'solid' } }, [new VText('box1')]),
+          node('div', { attributes: {}, style: { 'border-top-width': '1px', 'border-top-style': 'solid' } }, [new VText('box2')]),
+        ])
+      );
+      expect(out.tagName).toBe('table');
+      expect(out.children[0].children[0].children[0].tagName).toBe('table'); // nested T5 box
+    });
+
+    test('non-grid div → no-op; td with display:grid NOT converted (whitelist guard)', () => {
+      expect(transformLayoutTree(node('div', { attributes: {}, style: {} }, [cell('a')])).tagName).toBe('div');
+      const tdGrid = transformLayoutTree(
+        node('td', { attributes: {}, style: { display: 'grid', 'grid-template-columns': '100px 100px' } }, [cell('a'), cell('b')])
+      );
+      expect(tdGrid.tagName).toBe('td');
+    });
+
+    test('does not mutate the original grid tree', () => {
+      const child = cell('a');
+      const tree = gridNode('100px 100px', [child, cell('b')]);
       transformLayoutTree(tree);
       expect(tree.tagName).toBe('div');
       expect(tree.children[0]).toBe(child);

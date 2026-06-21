@@ -79,4 +79,15 @@ describe('layout-to-table integration', () => {
     const parsed = await parseDOCX(docx);
     expect(parsed.xml).toContain('<w:tcBorders');
   });
+
+  test('T4: 발주처/공급처 2-col grid → one row with two side-by-side cells', async () => {
+    const docx = await HTMLtoDOCX(inlineHTML);
+    const parsed = await parseDOCX(docx);
+    expect(parsed.xml).toContain('발주처');
+    expect(parsed.xml).toContain('공급처');
+    // grid div now emits a wrapping table whose single row holds both boxes as cells,
+    // so the outer table around 발주처 also encloses 공급처 (they share one grid row).
+    const gridRow = parsed.xml.match(/<w:tr\b[\s\S]*발주처[\s\S]*공급처[\s\S]*?<\/w:tr>/);
+    expect(gridRow).not.toBeNull();
+  });
 });
