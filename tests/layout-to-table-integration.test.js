@@ -64,4 +64,19 @@ describe('layout-to-table integration', () => {
     const cellCount = (rowWithSangho[0].match(/<w:tc>/g) || []).length;
     expect(cellCount).toBeGreaterThanOrEqual(2);
   });
+
+  test('T5: header bar shaded (fill 1a5276) and "발주서" white text preserved', async () => {
+    const docx = await HTMLtoDOCX(inlineHTML);
+    const parsed = await parseDOCX(docx);
+    // background rgb(26,82,118) → cell shading 1a5276 (no longer white-on-white)
+    expect(parsed.xml).toMatch(/w:fill="1a5276"/i);
+    expect(parsed.xml).toContain('발주서');
+    expect(parsed.xml).toMatch(/w:color w:val="ffffff"/i); // white run still present
+  });
+
+  test('T5: 발주처/공급처 boxes render with cell borders', async () => {
+    const docx = await HTMLtoDOCX(inlineHTML);
+    const parsed = await parseDOCX(docx);
+    expect(parsed.xml).toContain('<w:tcBorders');
+  });
 });

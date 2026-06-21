@@ -198,4 +198,83 @@ describe('layout-to-table (T1 scaffolding)', () => {
       expect(tree.children[0]).toBe(child);
     });
   });
+
+  describe('blockDivToTable (T5) — decorated div → single-cell table', () => {
+    const divNode = (style, children) => node('div', { attributes: {}, style }, children);
+
+    test('background div → table>tr>td, background preserved on cell', () => {
+      const out = transformLayoutTree(
+        divNode({ 'background-color': 'rgb(26, 82, 118)', 'text-align': 'center' }, [
+          node('strong', { attributes: {}, style: {} }, [new VText('발주서')]),
+        ])
+      );
+      expect(out.tagName).toBe('table');
+      const td = out.children[0].children[0];
+      expect(td.tagName).toBe('td');
+      expect(td.properties.style['background-color']).toBe('rgb(26, 82, 118)');
+      expect(td.properties.style['text-align']).toBe('center');
+      expect(td.properties.style.display).toBeUndefined(); // display stripped (block gate)
+    });
+
+    test('border div → cell carries border-*', () => {
+      const out = transformLayoutTree(
+        divNode(
+          {
+            'border-top-width': '0.666667px',
+            'border-top-style': 'solid',
+            'border-top-color': 'rgb(209,213,220)',
+          },
+          [new VText('box')]
+        )
+      );
+      const td = out.children[0].children[0];
+      expect(out.tagName).toBe('table');
+      expect(td.properties.style['border-top-width']).toBe('0.666667px');
+    });
+
+    test('decoration-less div → no-op (stays div)', () => {
+      expect(transformLayoutTree(divNode({ 'border-collapse': 'separate' }, [new VText('x')])).tagName).toBe('div');
+    });
+
+    test('white-background div → no-op (outermost container not wrapped)', () => {
+      expect(
+        transformLayoutTree(divNode({ 'background-color': 'rgb(255, 255, 255)', width: '800px' }, [new VText('x')]))
+          .tagName
+      ).toBe('div');
+    });
+
+    test('div width → table width, not cell width; table align=left', () => {
+      const out = transformLayoutTree(divNode({ 'background-color': '#1a5276', width: '710px' }, [new VText('x')]));
+      expect(out.properties.style.width).toBe('710px');
+      expect(out.children[0].children[0].properties.style.width).toBeUndefined();
+      expect(out.properties.attributes.align).toBe('left');
+    });
+
+    test('flex/grid branch wins over blockDiv when both apply', () => {
+      // flex row + background → flexRowToTable (cells per child), not a single wrapper cell
+      const flexBg = transformLayoutTree(
+        node('div', { attributes: {}, style: { display: 'flex', 'background-color': '#1a5276' } }, [
+          node('span', { attributes: {}, style: {} }, [new VText('a')]),
+          node('span', { attributes: {}, style: {} }, [new VText('b')]),
+        ])
+      );
+      expect(flexBg.tagName).toBe('table');
+      expect(flexBg.children[0].children.length).toBe(2);
+      // grid + border → still no-op div until T4 (blockDiv must not hijack grid)
+      const gridBd = transformLayoutTree(
+        node('div', { attributes: {}, style: { display: 'grid', 'border-top-width': '1px', 'border-top-style': 'solid' } }, [
+          node('div', { attributes: {}, style: {} }, [new VText('a')]),
+        ])
+      );
+      expect(gridBd.tagName).toBe('div');
+    });
+
+    test('does not mutate original', () => {
+      const child = node('strong', { attributes: {}, style: {} }, [new VText('t')]);
+      const tree = divNode({ 'background-color': '#1a5276' }, [child]);
+      transformLayoutTree(tree);
+      expect(tree.tagName).toBe('div');
+      expect(tree.children[0]).toBe(child);
+    });
+  });
 });

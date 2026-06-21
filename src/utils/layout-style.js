@@ -98,3 +98,43 @@ export const getJustifyContent = (style) => {
   const value = style['justify-content'];
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 };
+
+// Real border properties (shorthand / per-side / width|style|color). Deliberately
+// excludes border-collapse and border-spacing, which are not visible decoration.
+export const BORDER_DECORATION_RE = /^border(-(top|right|bottom|left))?(-(width|style|color))?$/;
+
+// Backgrounds that paint nothing visible — treated as "no decoration" so a plain
+// white-background container (e.g. the outermost body div) is NOT wrapped in a table.
+const INVISIBLE_BACKGROUNDS = new Set(['transparent', 'auto', 'white', '#fff', '#ffffff']);
+const isVisibleBackground = (value) => {
+  if (typeof value !== 'string') return false;
+  const v = value.trim().toLowerCase().replace(/\s+/g, '');
+  if (!v || INVISIBLE_BACKGROUNDS.has(v)) return false;
+  return !/^rgba?\(255,255,255(,(1|1\.0+|255))?\)$/.test(v); // white rgb/rgba variants
+};
+
+// A length that resolves to zero (0, 0px, 0pt, ...). Note: a leading-zero decimal
+// like 0.666667px is NOT zero — the fractional part must be all zeros to match.
+const isZeroLength = (value) => /^0(\.0+)?(px|pt|cm|in|em|rem|%)?$/.test(value);
+
+// Only borders that actually render. none / hidden / zero-width are dropped (F-H1).
+const hasVisibleBorder = (style) =>
+  Object.keys(style).some((key) => {
+    if (!BORDER_DECORATION_RE.test(key)) return false;
+    const v = (style[key] == null ? '' : String(style[key])).trim().toLowerCase();
+    if (!v || v === 'none' || v === 'hidden' || isZeroLength(v)) return false;
+    return true;
+  });
+
+/**
+ * True when a (non-flex, non-grid) `<div>` carries visible block decoration —
+ * a real background colour or a visible border — and therefore should be rendered
+ * as a single-cell table so the decoration survives in the DOCX. (T5)
+ * @param {Object} style
+ * @returns {boolean}
+ */
+export const hasBlockDecoration = (style) => {
+  if (!style || typeof style !== 'object') return false;
+  if (isVisibleBackground(style['background-color'] || style.background)) return true;
+  return hasVisibleBorder(style);
+};

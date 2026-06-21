@@ -16,9 +16,11 @@ import { cloneDeep } from 'lodash';
 import { VNode, isVNode, isVText } from '../vdom/index';
 import {
   isFlexContainer,
+  isGridContainer,
   getFlexDirection,
   getAlignItems,
   getJustifyContent,
+  hasBlockDecoration,
 } from '../utils/layout-style';
 import { pixelRegex, pointRegex, cmRegex, inchRegex } from '../utils/unit-conversion';
 
@@ -123,6 +125,41 @@ const flexRowToTable = (node, children, style) => {
 };
 
 /**
+ * Convert a non-flex/non-grid <div> that carries visible background or border into a
+ * single-cell table so the decoration survives in the DOCX. The synthesized td goes
+ * through buildTable→buildTableRow→buildTableCell, which applies cell shading (w:shd)
+ * and borders (w:tcBorders) and renders nested tables + paragraphs safely. This avoids
+ * the paragraph path, where background needs display==='block' and CSS borders have no
+ * mapping at all. (epic docx-convert-xku, T5)
+ *
+ * @param {Array} children already-transformed children
+ * @param {Object} style   the div's parsed style object (carries bg/border)
+ * @returns {VNode} a synthesized single-cell <table>
+ */
+const blockDivToTable = (children, style) => {
+  const cellStyle = { ...style };
+  delete cellStyle.width; // width belongs on the table, not the cell
+  delete cellStyle.display; // keep the cell's paragraph off the display==='block' gate
+  const td = createElement('td', cellStyle, children);
+  const row = createElement('tr', {}, [td]);
+  const tableStyle = style.width ? { width: style.width } : {};
+  return createElement('table', tableStyle, [row], { align: 'left' });
+};
+
+// Layout conversion targets block-level CONTAINERS only. Table parts (td/th/tr/table),
+// paragraphs and inline elements must never be re-wrapped — they have their own
+// background/border handling, and wrapping them corrupts the table structure.
+const BLOCK_CONTAINER_TAGS = new Set([
+  'div',
+  'section',
+  'article',
+  'header',
+  'footer',
+  'main',
+  'aside',
+]);
+
+/**
  * Recursively transform a single VTree node. Non-VNode values (VText, etc.) pass through
  * unchanged. VNodes are deep-cloned with their children recursively transformed.
  *
@@ -139,17 +176,23 @@ const transformNode = (node) => {
   const transformedChildren = (node.children || []).map(transformNode);
   const style = (node.properties && node.properties.style) || {};
 
-  // T2: flex-direction:row (including implicit row) → single-row table.
-  if (isFlexContainer(style) && getFlexDirection(style) === 'row') {
-    return flexRowToTable(node, transformedChildren, style);
+  // Only block containers are eligible for layout conversion (never td/th/tr/table/p/inline).
+  if (BLOCK_CONTAINER_TAGS.has(node.tagName)) {
+    // T2: flex-direction:row (including implicit row) → single-row table.
+    if (isFlexContainer(style) && getFlexDirection(style) === 'row') {
+      return flexRowToTable(node, transformedChildren, style);
+    }
+    // T5: visible background/border, non-flex/non-grid → single-cell table.
+    if (hasBlockDecoration(style) && !isFlexContainer(style) && !isGridContainer(style)) {
+      return blockDivToTable(transformedChildren, style);
+    }
+    // ── T3/T4 extension point ──
+    // if (isFlexContainer(style) && getFlexDirection(style) === 'column')
+    //   return flexColumnToTable(node, transformedChildren, style);   // T3
+    // if (isGridContainer(style)) return gridToTable(node, transformedChildren, style); // T4
   }
-  // ── T3/T4 extension point ──────────────────────────────────────────────
-  // if (isFlexContainer(style) && getFlexDirection(style) === 'column')
-  //   return flexColumnToTable(node, transformedChildren, style);   // T3
-  // if (isGridContainer(style)) return gridToTable(node, transformedChildren, style); // T4
-  // ───────────────────────────────────────────────────────────────────────
 
-  // No-op: deep-clone with transformed children (column / grid / plain div).
+  // No-op: deep-clone with transformed children.
   return cloneVNodeWithChildren(node, transformedChildren);
 };
 

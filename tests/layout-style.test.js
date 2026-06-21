@@ -11,6 +11,7 @@ import {
   getGap,
   getAlignItems,
   getJustifyContent,
+  hasBlockDecoration,
 } from '../src/utils/layout-style.js';
 
 describe('layout-style parsers', () => {
@@ -112,6 +113,46 @@ describe('layout-style parsers', () => {
     test('returns null when absent', () => {
       expect(getAlignItems({})).toBeNull();
       expect(getJustifyContent(undefined)).toBeNull();
+    });
+  });
+
+  describe('hasBlockDecoration (T5)', () => {
+    test('visible background → true', () => {
+      expect(hasBlockDecoration({ 'background-color': 'rgb(26, 82, 118)' })).toBe(true);
+      expect(hasBlockDecoration({ background: '#1a5276' })).toBe(true);
+    });
+
+    test('visible border → true', () => {
+      expect(
+        hasBlockDecoration({ 'border-top-width': '0.666667px', 'border-top-style': 'solid' })
+      ).toBe(true);
+      expect(hasBlockDecoration({ border: '1px solid #ccc' })).toBe(true);
+    });
+
+    test('white / transparent / auto background → false (no wrapping)', () => {
+      expect(hasBlockDecoration({ 'background-color': 'rgb(255, 255, 255)' })).toBe(false);
+      expect(hasBlockDecoration({ 'background-color': 'rgba(255,255,255,1)' })).toBe(false);
+      expect(hasBlockDecoration({ 'background-color': 'white' })).toBe(false);
+      expect(hasBlockDecoration({ 'background-color': 'transparent' })).toBe(false);
+      expect(hasBlockDecoration({ background: '#ffffff' })).toBe(false);
+    });
+
+    test('invisible border (none/hidden/0) → false (F-H1)', () => {
+      expect(hasBlockDecoration({ border: 'none' })).toBe(false);
+      expect(hasBlockDecoration({ 'border-style': 'hidden' })).toBe(false);
+      expect(hasBlockDecoration({ 'border-width': '0' })).toBe(false);
+      expect(hasBlockDecoration({ 'border-top-width': '0px' })).toBe(false);
+    });
+
+    test('border-collapse / border-spacing only → false', () => {
+      expect(hasBlockDecoration({ 'border-collapse': 'separate' })).toBe(false);
+      expect(hasBlockDecoration({ 'border-spacing': '0px' })).toBe(false);
+    });
+
+    test('empty / invalid → false', () => {
+      expect(hasBlockDecoration({})).toBe(false);
+      expect(hasBlockDecoration(undefined)).toBe(false);
+      expect(hasBlockDecoration(null)).toBe(false);
     });
   });
 });
