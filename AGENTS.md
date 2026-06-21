@@ -134,8 +134,8 @@ bd close <id>           # Complete work
 
 - Use `bd` for ALL task tracking — do NOT use TodoWrite/TaskCreate/markdown TODO.
 - Use `bd remember` as the **primary** store for persistent knowledge and decisions.
-- `MEMORY.md` is only for this project's **long-lived operating rules** — keep it short (it stops being read once it grows).
-- Run `bd prime` for detailed command reference.
+- `MEMORY.md` is a thin **index/pointer** only — the harness auto-injects it at session start, so it points to `bd prime` and holds a few long-lived operating rules (keep it short). Detail lives in bd.
+- Run `bd prime` (or `/시작`) at session start to load memories + ready issues.
 
 ## Session Completion
 
