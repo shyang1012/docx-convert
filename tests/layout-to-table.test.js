@@ -24,14 +24,7 @@ describe('layout-to-table (T1 scaffolding)', () => {
       expect(out.children).not.toBe(tree.children); // children array re-created
     });
 
-    test('flex container is preserved in T1 — NOT converted to a table yet', () => {
-      const tree = node('div', { attributes: {}, style: { display: 'flex' } }, [new VText('x')]);
-      const out = transformLayoutTree(tree);
-      expect(out.tagName).toBe('div'); // still a div, not a table (conversion is T2)
-      expect(isVText(out.children[0])).toBe(true);
-    });
-
-    test('grid container is preserved in T1 — NOT converted', () => {
+    test('grid container is preserved — NOT converted until T4', () => {
       const tree = node(
         'div',
         { attributes: {}, style: { display: 'grid', 'grid-template-columns': '1fr 1fr' } },
@@ -122,6 +115,87 @@ describe('layout-to-table (T1 scaffolding)', () => {
       expect(el.properties.style).toEqual({});
       expect(el.properties.attributes).toEqual({});
       expect(el.children).toEqual([]);
+    });
+  });
+
+  describe('flexRowToTable (T2) — flex row → table', () => {
+    const span = (style, text) => node('span', { attributes: {}, style: style || {} }, [new VText(text)]);
+    const flexRow = (containerStyle, children) =>
+      node('div', { attributes: {}, style: { display: 'flex', ...containerStyle } }, children);
+
+    test('flex row div → table > tr > td*N (cell count = child count)', () => {
+      const out = transformLayoutTree(
+        flexRow({}, [span({}, '상호'), span({}, ':'), span({}, '테스트')])
+      );
+      expect(out.tagName).toBe('table');
+      const tr = out.children[0];
+      expect(tr.tagName).toBe('tr');
+      expect(tr.children.length).toBe(3);
+      expect(tr.children.every((td) => td.tagName === 'td')).toBe(true);
+    });
+
+    test('absolute child width → td width; %/unsupported NOT transferred (F-02)', () => {
+      const out = transformLayoutTree(
+        flexRow({}, [span({ width: '108px' }, 'a'), span({ width: '50%' }, 'b'), span({}, 'c')])
+      );
+      const [td1, td2, td3] = out.children[0].children;
+      expect(td1.properties.style.width).toBe('108px');
+      expect(td2.properties.style.width).toBeUndefined();
+      expect(td3.properties.style.width).toBeUndefined();
+    });
+
+    test('align-items:center → td vertical-align:middle; stretch not mapped (F-01)', () => {
+      const center = transformLayoutTree(flexRow({ 'align-items': 'center' }, [span({}, 'a')]));
+      expect(center.children[0].children[0].properties.style['vertical-align']).toBe('middle');
+      const stretch = transformLayoutTree(flexRow({ 'align-items': 'stretch' }, [span({}, 'a')]));
+      expect(stretch.children[0].children[0].properties.style['vertical-align']).toBeUndefined();
+    });
+
+    test('table align from justify-content (default left) (FLAG-7/CP6)', () => {
+      expect(transformLayoutTree(flexRow({}, [span({}, 'a')])).properties.attributes.align).toBe('left');
+      expect(
+        transformLayoutTree(flexRow({ 'justify-content': 'flex-end' }, [span({}, 'a')])).properties
+          .attributes.align
+      ).toBe('right');
+      expect(
+        transformLayoutTree(flexRow({ 'justify-content': 'center' }, [span({}, 'a')])).properties
+          .attributes.align
+      ).toBe('center');
+      // space-* unsupported → left
+      expect(
+        transformLayoutTree(flexRow({ 'justify-content': 'space-between' }, [span({}, 'a')]))
+          .properties.attributes.align
+      ).toBe('left');
+    });
+
+    test('table width inherited from container width', () => {
+      const out = transformLayoutTree(flexRow({ width: '710px' }, [span({}, 'a')]));
+      expect(out.properties.style.width).toBe('710px');
+    });
+
+    test('flex-direction column / row-reverse NOT converted (T3 / out-of-scope)', () => {
+      expect(
+        transformLayoutTree(flexRow({ 'flex-direction': 'column' }, [span({}, 'a')])).tagName
+      ).toBe('div');
+      expect(
+        transformLayoutTree(flexRow({ 'flex-direction': 'row-reverse' }, [span({}, 'a')])).tagName
+      ).toBe('div');
+    });
+
+    test('empty-text children skipped; no valid cells → no-op div (FLAG-3)', () => {
+      const out = transformLayoutTree(flexRow({}, [new VText('   '), span({}, 'a')]));
+      expect(out.tagName).toBe('table');
+      expect(out.children[0].children.length).toBe(1); // blank text dropped
+      const onlyBlank = transformLayoutTree(flexRow({}, [new VText('   ')]));
+      expect(onlyBlank.tagName).toBe('div'); // no valid cells → unchanged
+    });
+
+    test('does not mutate the original flex tree', () => {
+      const child = span({ width: '108px' }, 'a');
+      const tree = flexRow({}, [child]);
+      transformLayoutTree(tree);
+      expect(tree.tagName).toBe('div');
+      expect(tree.children[0]).toBe(child);
     });
   });
 });

@@ -18,7 +18,7 @@ const inlineHTML = readFileSync(
   'utf-8'
 );
 
-describe('layout-to-table integration (T1 no-op regression)', () => {
+describe('layout-to-table integration', () => {
   test('purchase-order-inline converts with all key content (hook wired, no-op)', async () => {
     const docx = await HTMLtoDOCX(inlineHTML);
     const parsed = await parseDOCX(docx);
@@ -44,5 +44,24 @@ describe('layout-to-table integration (T1 no-op regression)', () => {
     const docx = await HTMLtoDOCX(inlineHTML);
     const parsed = await parseDOCX(docx);
     expect(parsed.xml).toContain('<w:tbl');
+  });
+
+  test('T2: flex rows are converted to tables (more than the single line-items table)', async () => {
+    const docx = await HTMLtoDOCX(inlineHTML);
+    const parsed = await parseDOCX(docx);
+    const tableCount = (parsed.xml.match(/<w:tbl>/g) || []).length;
+    // Before T2 only the real <table> rendered (1). Now the flex rows
+    // ("상호 : 테스트", "발주일 : …") also become tables → strictly more than 1.
+    expect(tableCount).toBeGreaterThan(1);
+  });
+
+  test('T2: "상호 : 테스트" sits in one row across cells (not stacked paragraphs)', async () => {
+    const docx = await HTMLtoDOCX(inlineHTML);
+    const parsed = await parseDOCX(docx);
+    // The label/colon/value land in separate <w:tc> cells of one <w:tr>.
+    const rowWithSangho = parsed.xml.match(/<w:tr\b[\s\S]*?상호[\s\S]*?<\/w:tr>/);
+    expect(rowWithSangho).not.toBeNull();
+    const cellCount = (rowWithSangho[0].match(/<w:tc>/g) || []).length;
+    expect(cellCount).toBeGreaterThanOrEqual(2);
   });
 });

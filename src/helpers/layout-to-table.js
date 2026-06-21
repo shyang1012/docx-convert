@@ -13,7 +13,14 @@
 // [shyang 2026-06-21]
 
 import { cloneDeep } from 'lodash';
-import { VNode, isVNode } from '../vdom/index';
+import { VNode, isVNode, isVText } from '../vdom/index';
+import {
+  isFlexContainer,
+  getFlexDirection,
+  getAlignItems,
+  getJustifyContent,
+} from '../utils/layout-style';
+import { pixelRegex, pointRegex, cmRegex, inchRegex } from '../utils/unit-conversion';
 
 /**
  * Clone a VNode preserving its FULL properties bag, key and namespace, replacing only
@@ -48,6 +55,73 @@ export const cloneVNodeWithChildren = (originalVNode, newChildren) =>
 export const createElement = (tagName, style = {}, children = [], attributes = {}) =>
   new VNode(tagName, { attributes: { ...attributes }, style: { ...style } }, children);
 
+// Absolute CSS length units that fixupColumnWidth() resolves without a parent width.
+// % and unsupported units are NOT transferred to cells (review F-02): a percentage cell
+// width is multiplied by the (possibly absent) table width → 0/NaN, corrupting w:tcW.
+const ABSOLUTE_WIDTH_REGEXES = [pixelRegex, pointRegex, cmRegex, inchRegex];
+const isAbsoluteWidth = (value) =>
+  typeof value === 'string' && ABSOLUTE_WIDTH_REGEXES.some((re) => re.test(value));
+
+// align-items (cross axis) → table-cell vertical alignment. Only builder-accepted values
+// are emitted (review F-01): modifiedStyleAttributesBuilder takes top|middle|bottom and
+// buildVerticalAlignment maps 'middle' → OOXML 'center'. stretch/baseline are dropped.
+const ALIGN_ITEMS_TO_VALIGN = { 'flex-start': 'top', center: 'middle', 'flex-end': 'bottom' };
+
+// justify-content (main axis) → table horizontal position. buildTableProperties defaults
+// an unaligned table to 'center', so we always set align (default 'left') to match a
+// left-flowing flex row. space-* has no table equivalent → falls back to left.
+const JUSTIFY_TO_ALIGN = {
+  'flex-start': 'left',
+  start: 'left',
+  left: 'left',
+  center: 'center',
+  'flex-end': 'right',
+  end: 'right',
+  right: 'right',
+};
+
+/**
+ * Convert a `display:flex; flex-direction:row` <div> (including implicit row) into a
+ * single-row table so its children sit side by side in the DOCX. Each child becomes a
+ * <td>; the row is one <tr> inside a borderless <table>. The existing buildTable path
+ * renders it. (epic docx-convert-xku, T2)
+ *
+ * @param {VNode} node     original flex container
+ * @param {Array} children already-transformed children
+ * @param {Object} style   the container's parsed style object
+ * @returns {VNode} a synthesized <table>, or a no-op clone if there are no real children
+ */
+const flexRowToTable = (node, children, style) => {
+  const vAlign = ALIGN_ITEMS_TO_VALIGN[getAlignItems(style)];
+
+  const cells = children
+    .filter((child) => !(isVText(child) && child.text.trim() === ''))
+    .map((child) => {
+      const cellStyle = {};
+      if (isVNode(child)) {
+        const childWidth =
+          child.properties && child.properties.style && child.properties.style.width;
+        if (isAbsoluteWidth(childWidth)) cellStyle.width = childWidth;
+      }
+      if (vAlign) cellStyle['vertical-align'] = vAlign;
+      return createElement('td', cellStyle, [child]);
+    });
+
+  // Only blank text (or nothing) → leave the node unchanged (no-op clone).
+  if (cells.length === 0) return cloneVNodeWithChildren(node, children);
+
+  const row = createElement('tr', {}, cells);
+
+  const tableStyle = {};
+  const nodeWidth = node.properties && node.properties.style && node.properties.style.width;
+  if (nodeWidth) tableStyle.width = nodeWidth;
+
+  // Default to left so the borderless layout table is not centered by the builder (F-7).
+  const align = JUSTIFY_TO_ALIGN[getJustifyContent(style)] || 'left';
+
+  return createElement('table', tableStyle, [row], { align });
+};
+
 /**
  * Recursively transform a single VTree node. Non-VNode values (VText, etc.) pass through
  * unchanged. VNodes are deep-cloned with their children recursively transformed.
@@ -63,14 +137,19 @@ const transformNode = (node) => {
   }
 
   const transformedChildren = (node.children || []).map(transformNode);
+  const style = (node.properties && node.properties.style) || {};
 
-  // ── T2~T4 extension point ──────────────────────────────────────────────
-  // const style = (node.properties && node.properties.style) || {};
-  // if (isFlexContainer(style)) return flexToTable(node, transformedChildren, style);
-  // if (isGridContainer(style)) return gridToTable(node, transformedChildren, style);
+  // T2: flex-direction:row (including implicit row) → single-row table.
+  if (isFlexContainer(style) && getFlexDirection(style) === 'row') {
+    return flexRowToTable(node, transformedChildren, style);
+  }
+  // ── T3/T4 extension point ──────────────────────────────────────────────
+  // if (isFlexContainer(style) && getFlexDirection(style) === 'column')
+  //   return flexColumnToTable(node, transformedChildren, style);   // T3
+  // if (isGridContainer(style)) return gridToTable(node, transformedChildren, style); // T4
   // ───────────────────────────────────────────────────────────────────────
 
-  // T1 no-op: deep-clone with transformed children, no conversion.
+  // No-op: deep-clone with transformed children (column / grid / plain div).
   return cloneVNodeWithChildren(node, transformedChildren);
 };
 
