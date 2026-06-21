@@ -1,0 +1,89 @@
+# Agent Instructions — docx-convert
+
+## Roles & Addressing
+
+- **PL (Project Leader)** = Claude (이 프로젝트의 메인 에이전트, PM 지시 하 주 실행자)
+- **PM (Project Manager)** = 승현님 (Seunghyeon Yang, 프로젝트 오너 / 전략·범위·배포 최종 승인자)
+- **Codex** = audit 에이전트 (findings-first 리뷰, plan/code/risk 검증)
+- **Gemini** = strategic architect (Why & Better Way, 장기 구조)
+
+**호칭 규칙**:
+- PM 은 한국어 대화에서 **승현님**, 운영 노트에선 **PM**
+- 코드 커밋·git author 는 **shyang**
+- 노트의 "PL" 은 Claude 메인 에이전트를 의미
+
+## Team & Delegation (모델 할당)
+
+**나(Claude)의 역할: PL + 풀스택 라이브러리 개발자.** 아키텍처·변환 로직 방향·리뷰 최종 승인은 PL 직접. 구현/테스트/문서는 서브에이전트로 위임.
+
+| 역할(서브에이전트) | 담당 | 위임 기준 | 모델 |
+|------|------|----------|------|
+| 라이브러리 개발자 | 변환기(render/xml-builder/vdom/utils) 구현 | 구현 태스크, 버그 수정 | sonnet (단순 haiku) |
+| 테스트 엔지니어 | vitest 단위·통합, 회귀/정합성 | 테스트 작성/갱신, 회귀 검증 | sonnet (단순 haiku) |
+| 테크라이터 | README·CLAUDE·AGENTS·CHANGELOG, 출처(LICENSE/NOTICE) 정합 | 문서 구조화, 출처 정합 유지 | sonnet |
+| OOXML 전문가 | OOXML 스펙 대조, Word 열림 검증 | 포맷 정합, 호환 진단 | sonnet |
+
+**모델 할당 정책**:
+- **PL(나) = opus** (사용자 세션이 sonnet 이면 PL 도 sonnet)
+- **팀원(서브에이전트) = sonnet** 기본. 아래 3조건 **모두** 충족 시 haiku: ① 단일 파일 수정/탐색 ② 아키텍처 판단 불필요 ③ 명확한 입출력(포맷 변환·단순 검색·lint).
+- Agent 호출 시 `model` 파라미터를 **반드시 명시**.
+
+## What is docx-convert
+
+HTML 문자열을 `.docx`(Office Open XML)로 변환하는 순수 JavaScript 라이브러리 (headless 브라우저·LibreOffice·네이티브 바이너리 불필요). 출력은 `Buffer`(Node) 또는 `Blob`(브라우저).
+
+- [@turbodocx/html-to-docx](https://github.com/TurboDocx/html-to-docx)(MIT) fork·확장. 원작은 [privateOmega/html-to-docx](https://github.com/privateOmega/html-to-docx)(MIT). 출처: `LICENSE` / `NOTICE`.
+- 아키텍처 상세: `CLAUDE.md`(로컬).
+- 차별화 방향: 인라인 스타일 충실도, flex/grid `<div>` 레이아웃의 표 매핑.
+
+## 빌드 / 테스트
+
+```bash
+npm install
+npm run build      # esbuild → dist/ (ESM + CJS + browser ESM)
+npm run test:unit  # vitest run
+npm run lint       # eslint --fix
+```
+
+- 소스는 현재 JS. esbuild 는 `.ts` 네이티브 지원 → 추후 TypeScript 점진 전환 시 빌드 변경 불필요.
+- `sharp` 는 SVG→PNG 래스터화에만 쓰이는 optional 네이티브 의존성. 브라우저 빌드는 null stub.
+- 코어는 브라우저 안전을 유지 — Node 전용 API 추가 시 빌드 영향 확인.
+
+## Project Operating Policy
+
+개인 프로젝트 + local-first 워크플로우.
+
+- GitHub: `shyang1012/docx-convert`.
+- **`dev` = 일상 개발·백업 브랜치.** 평소 모든 작업·커밋은 `dev` 에서.
+- **`main` = 배포 브랜치.** `dev`→`main` 은 **배포를 결정했을 때만** 머지.
+- git push 는 명시 배포 요청이 없으면 **`origin/dev`** 로만.
+- upstream(TurboDocx) 변경은 별도 보존 클론(`html-to-docx`)에서 받아 수동 이식.
+
+## 배포 워크플로우
+
+**개발은 `dev`, 배포 결정 시 `main` 에 검증 + PR.**
+
+1. **개발** — `dev` 브랜치에서 구현. TDD(테스트 먼저), 커밋, `git push origin dev`.
+2. **배포 결정** — PM 이 배포를 결정하면:
+   1. **전체 검증** — `npm run build && npm run test:unit` 통과 + 대표 HTML 변환 산출물 Word 열림 확인(가능 시).
+   2. **PR 생성** — `dev` → `main` PR. 변경 요약·검증 결과 기재.
+   3. **머지 후 배포** — `npm version <patch|minor|major>` → `npm publish`(prepublishOnly 가 clean→build→test 자동 실행). publish 는 PM 승인 하 실행.
+
+## 코드 서명
+
+- 본인 신규/대폭 수정 파일 헤더 주석에 `[shyang YYYY-MM-DD]`.
+- docx-convert 는 외부 코드 포팅이 없으므로 "원작:" 헤더 주석은 불필요(출처는 LICENSE/NOTICE).
+
+## 보안 / 시크릿
+
+- `.npmrc`(공급망 하드닝: min-release-age / ignore-scripts / save-exact 적용)·`.env`·키 파일은 커밋·노출 금지.
+- npm 토큰은 만료형(Granular/Automation) 사용.
+
+## 금지 / 확인 (모든 모드)
+
+- 🔴 자발 금지: `git push --force` / `git reset --hard` / 브랜치·태그 삭제 / `main` 직접 push(배포 외).
+- ⚠️ 실행 전 PM 확인: `npm publish`, PR 생성/머지, 공개 배포, 의존성 downgrade, CI 변경.
+
+## Non-Interactive Shell
+
+`cp`/`mv`/`rm` 등은 비대화형 플래그로(`-f`, `-rf`) — 확인 프롬프트 대기 방지.

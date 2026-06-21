@@ -1,0 +1,127 @@
+{
+  "name": "docx-convert",
+  "version": "1.0.0",
+  "description": "Convert an HTML string into a .docx (Office Open XML) document — pure JavaScript, no headless browser, LibreOffice, or native binaries.",
+  "keywords": [
+    "docx-convert",
+    "docx-converter",
+    "html-to-docx",
+    "html to docx",
+    "html",
+    "docx",
+    "office",
+    "word",
+    "ooxml",
+    "Office Open XML",
+    "document generation",
+    "document automation",
+    "report",
+    "typescript",
+    "rtl",
+    "hebrew",
+    "arabic",
+    "문서변환",
+    "워드"
+  ],
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "browser": "./dist/docx-convert.browser.esm.js",
+      "import": "./dist/docx-convert.esm.js",
+      "require": "./dist/docx-convert.cjs.js",
+      "default": "./dist/docx-convert.esm.js"
+    },
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  },
+  "main": "dist/docx-convert.cjs.js",
+  "module": "dist/docx-convert.esm.js",
+  "browser": "dist/docx-convert.browser.esm.js",
+  "types": "index.d.ts",
+  "files": [
+    "dist",
+    "index.d.ts",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "node scripts/build.mjs",
+    "build:browser": "node scripts/build.mjs --browser-only",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:unit:coverage": "vitest run --coverage",
+    "test:node": "npm run build && node example/example-node.js",
+    "test:headings": "npm run build && node example/example-heading-styles.js",
+    "test:ts": "npm run build && cross-env TS_NODE_PROJECT=example/typescript/tsconfig.json ts-node -r tsconfig-paths/register example/typescript/typescript-example.ts",
+    "test:all": "npm run test:unit && npm run test:node && npm run test:headings && npm run test:ts",
+    "lint": "eslint --fix .",
+    "prettier:check": "prettier --check \"**/*.js\"",
+    "validate": "run-s lint prettier:check",
+    "diff:docx": "node scripts/diff-docx.js",
+    "prepare": "husky install",
+    "prepublishOnly": "npm run clean && npm run build && npm run test:unit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shyang1012/docx-convert.git"
+  },
+  "author": "shyang <disroway@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/shyang1012/docx-convert/issues"
+  },
+  "homepage": "https://github.com/shyang1012/docx-convert#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^13.1.0",
+    "cross-env": "^7.0.3",
+    "diff": "^5.2.0",
+    "esbuild": "^0.25.0",
+    "esbuild-plugin-polyfill-node": "^0.3.0",
+    "eslint": "^7.32.0",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-import": "^2.24.2",
+    "eslint-plugin-prettier": "^4.0.0",
+    "husky": "^7.0.0",
+    "lint-staged": "^11.1.2",
+    "lodash-es": "^4.17.21",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^2.4.1",
+    "rimraf": "^5.0.10",
+    "standard-version": "^9.3.1",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.9"
+  },
+  "dependencies": {
+    "axios": "^1.12.2",
+    "color-name": "^1.1.4",
+    "html-entities": "^2.3.3",
+    "html-minifier-terser": "^7.2.0",
+    "htmlparser2": "^10.0.0",
+    "image-size": "^2.0.2",
+    "jszip": "^3.7.1",
+    "lodash": "^4.17.21",
+    "lru-cache": "^10.4.3",
+    "mime-types": "^2.1.35",
+    "nanoid": "^3.1.25",
+    "xmlbuilder2": "2.1.2"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.33.0"
+  },
+  "lint-staged": {
+    "src/**/*.js": [
+      "prettier --write",
+      "eslint --fix"
+    ]
+  }
+}
