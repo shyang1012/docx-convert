@@ -5,6 +5,7 @@ import * as lruCache from 'lru-cache';
 import { cloneDeep } from 'lodash';
 
 import createHTMLToVDOM from './html-parser';
+import { transformLayoutTree } from './layout-to-table';
 import { VNode, isVNode, isVText } from '../vdom/index';
 import * as xmlBuilder from './xml-builder';
 import namespaces from '../namespaces';
@@ -657,7 +658,7 @@ async function renderDocumentFile(docxDocumentInstance, properties = {}) {
     }
   }
 
-  const vTree = convertHTML(docxDocumentInstance.htmlString);
+  let vTree = convertHTML(docxDocumentInstance.htmlString);
 
   if (!vTree) {
     throw new Error('Failed to convert HTML to VDOM tree. No VTree generated.');
@@ -685,6 +686,12 @@ async function renderDocumentFile(docxDocumentInstance, properties = {}) {
     }
     vTree.properties.style = { ...properties, ...vTree.properties.style };
   }
+
+  // Layout preprocessing pass: translate flex/grid <div> layouts into virtual
+  // table VNodes before rendering (epic docx-convert-xku). Applied after the
+  // property-inheritance merge above so the transform sees the merged tree.
+  // T1 is a no-op (detection-only); conversion lands in T2~T4.
+  vTree = transformLayoutTree(vTree);
 
   const xmlFragment = fragment({ namespaceAlias: { w: namespaces.w } });
 
