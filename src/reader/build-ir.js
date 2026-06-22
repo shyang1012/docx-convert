@@ -5,6 +5,17 @@ const bodyOf = (doc) => {
   return findChild(docEl, 'w:body');
 };
 
+// Recursively find the first descendant element with the given name (depth-first).
+const findDescendant = (node, name) => {
+  for (const c of childrenOf(node)) {
+    if (!isEl(c)) continue;
+    if (c.name === name) return c;
+    const found = findDescendant(c, name);
+    if (found) return found;
+  }
+  return null;
+};
+
 const runToInline = (r) => {
   const rPr = findChild(r, 'w:rPr');
   const has = (name) => !!(rPr && findChild(rPr, name));
@@ -26,14 +37,22 @@ const headingLevel = (p) => {
   return m ? Number(m[1]) : null;
 };
 
-// Replaces paragraphInlines: also handles <w:hyperlink>.
+// Replaces paragraphInlines: also handles <w:hyperlink> and image runs.
 const collectInlines = (parent, ctx) => {
   const out = [];
   for (const c of childrenOf(parent)) {
     if (!isEl(c)) continue;
     if (c.name === 'w:r') {
-      const inline = runToInline(c);
-      if (inline.text.length) out.push(inline);
+      // Image: a run containing w:drawing emits an image inline instead of text.
+      const drawing = findChild(c, 'w:drawing');
+      if (drawing) {
+        const docPr = findDescendant(drawing, 'wp:docPr');
+        const alt = (docPr && attr(docPr, 'descr')) || '';
+        out.push({ type: 'image', alt });
+      } else {
+        const inline = runToInline(c);
+        if (inline.text.length) out.push(inline);
+      }
     } else if (c.name === 'w:hyperlink') {
       const href = (ctx.rels || {})[attr(c, 'r:id')] || '';
       out.push({ type: 'link', href, children: collectInlines(c, ctx) });
@@ -169,7 +188,10 @@ export const buildIr = (doc, ctx = {}) => {
       }
     } else if (node.name === 'w:tbl') {
       flushList();
-      // w:tbl handled in Task 6
+      const rows = findAll(node, 'w:tr').map((tr) =>
+        findAll(tr, 'w:tc').map((tc) => findAll(tc, 'w:p').flatMap((p) => collectInlines(p, ctx)))
+      );
+      blocks.push({ type: 'table', rows });
     }
   }
 
