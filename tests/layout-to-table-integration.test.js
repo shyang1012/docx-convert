@@ -90,4 +90,13 @@ describe('layout-to-table integration', () => {
     const gridRow = parsed.xml.match(/<w:tr\b[\s\S]*발주처[\s\S]*공급처[\s\S]*?<\/w:tr>/);
     expect(gridRow).not.toBeNull();
   });
+
+  test('T6: header cell padding (9px/18px) emits w:tcMar (135/270)', async () => {
+    const docx = await HTMLtoDOCX(inlineHTML);
+    const parsed = await parseDOCX(docx);
+    // header div padding 9px 18px → synthesized cell carries w:tcMar with those TWIP values
+    expect(parsed.xml).toContain('<w:tcMar>');
+    expect(parsed.xml).toMatch(/w:w="135"/);
+    expect(parsed.xml).toMatch(/w:w="270"/);
+  });
 });
