@@ -42,6 +42,82 @@ const collectInlines = (parent, ctx) => {
   return out;
 };
 
+// Returns the ordered format strings that map to ordered:true
+const ORDERED_FMTS = new Set([
+  'decimal',
+  'lowerLetter',
+  'upperLetter',
+  'lowerRoman',
+  'upperRoman',
+  'ordinal',
+]);
+
+const isOrderedFmt = (fmt) => ORDERED_FMTS.has(fmt);
+
+// Extract list info from a paragraph. Returns null if not a list paragraph.
+const listInfoOf = (p, ctx) => {
+  const pPr = findChild(p, 'w:pPr');
+  if (!pPr) return null;
+  const numPr = findChild(pPr, 'w:numPr');
+  if (!numPr) return null;
+  const numIdEl = findChild(numPr, 'w:numId');
+  if (!numIdEl) return null;
+  const numId = String(attr(numIdEl, 'w:val') || '');
+  if (!numId) return null;
+  const ilvlEl = findChild(numPr, 'w:ilvl');
+  const ilvl = Number(attr(ilvlEl, 'w:val') || '0');
+
+  const numbering = ctx.numbering || {};
+  const numDef = numbering[numId] || numbering[Number(numId)] || {};
+  const fmt = numDef[ilvl] || numDef[String(ilvl)];
+  const ordered = isOrderedFmt(fmt);
+  return { numId, ilvl, ordered };
+};
+
+// Build a list block from an array of raw list paragraphs (each with {ilvl, ordered, inlines}).
+// Groups contiguous ilvl-0 items and attaches ilvl>0 as sublists on the preceding parent.
+const buildListBlock = (rawItems) => {
+  // Determine the ordered flag from the first ilvl-0 item (or fallback to first item)
+  const topItem = rawItems.find((r) => r.ilvl === 0) || rawItems[0];
+  const { ordered } = topItem;
+
+  const items = [];
+  let currentItem = null; // the last ilvl-0 item
+  let subBuffer = []; // pending ilvl>0 items for current parent
+
+  const flushSub = () => {
+    if (subBuffer.length === 0 || !currentItem) return;
+    // Build sublist from subBuffer (currently only one level deep — ilvl 1)
+    const subOrdered = subBuffer[0].ordered;
+    currentItem.sublist = {
+      type: 'list',
+      ordered: subOrdered,
+      items: subBuffer.map((s) => ({ children: s.inlines })),
+    };
+    subBuffer = [];
+  };
+
+  for (const raw of rawItems) {
+    if (raw.ilvl === 0) {
+      flushSub();
+      currentItem = { children: raw.inlines };
+      items.push(currentItem);
+    } else {
+      // ilvl > 0 — attach to most recent ilvl-0 parent
+      if (!currentItem) {
+        // No parent yet — promote as a top-level item (best-effort)
+        currentItem = { children: raw.inlines };
+        items.push(currentItem);
+      } else {
+        subBuffer.push(raw);
+      }
+    }
+  }
+  flushSub();
+
+  return { type: 'list', ordered, items };
+};
+
 const paragraphToBlock = (p, ctx) => {
   const level = headingLevel(p);
   if (level !== null) {
@@ -53,10 +129,50 @@ const paragraphToBlock = (p, ctx) => {
 export const buildIr = (doc, ctx = {}) => {
   const body = bodyOf(doc);
   const blocks = [];
+
+  // Buffer for consecutive list paragraphs belonging to one logical list group.
+  // A new group starts when: numId changes at ilvl 0, or ordered flag flips at ilvl 0.
+  let listBuffer = []; // array of { ilvl, ordered, numId, inlines }
+  let bufNumId = null; // numId of current top-level list
+  let bufOrdered = null; // ordered flag of current top-level list
+
+  const flushList = () => {
+    if (listBuffer.length === 0) return;
+    blocks.push(buildListBlock(listBuffer));
+    listBuffer = [];
+    bufNumId = null;
+    bufOrdered = null;
+  };
+
   for (const node of childrenOf(body)) {
     if (!isEl(node)) continue;
-    if (node.name === 'w:p') blocks.push(paragraphToBlock(node, ctx));
-    // w:tbl handled in Task 6
+
+    if (node.name === 'w:p') {
+      const info = listInfoOf(node, ctx);
+      if (info) {
+        const inlines = collectInlines(node, ctx);
+        // Decide whether to start a new group (only matters at ilvl 0)
+        if (info.ilvl === 0) {
+          if (bufNumId !== null && (info.numId !== bufNumId || info.ordered !== bufOrdered)) {
+            // Different numId or ordered type at root level → flush and start fresh
+            flushList();
+          }
+          if (bufNumId === null) {
+            bufNumId = info.numId;
+            bufOrdered = info.ordered;
+          }
+        }
+        listBuffer.push({ ilvl: info.ilvl, ordered: info.ordered, numId: info.numId, inlines });
+      } else {
+        flushList();
+        blocks.push(paragraphToBlock(node, ctx));
+      }
+    } else if (node.name === 'w:tbl') {
+      flushList();
+      // w:tbl handled in Task 6
+    }
   }
+
+  flushList();
   return blocks;
 };
