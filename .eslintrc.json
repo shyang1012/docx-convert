@@ -13,7 +13,15 @@
     "import/no-cycle": "off",
     "no-param-reassign": "off",
     "no-nested-ternary": "off",
-    "no-underscore-dangle": ["error", { "allow": ["_imageCache", "_retryStats"] }]
+    "no-underscore-dangle": ["error", { "allow": ["_imageCache", "_retryStats"] }],
+    "no-continue": "off",
+    "no-restricted-syntax": "off",
+    "import/prefer-default-export": "off",
+    "no-lonely-if": "off",
+    "no-use-before-define": "off",
+    "class-methods-use-this": "off",
+    "no-cond-assign": ["error", "except-parens"],
+    "no-console": "warn"
   },
   "overrides": [
     {

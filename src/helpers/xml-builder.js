@@ -452,6 +452,28 @@ const fixupMargin = (marginString) => {
   }
 };
 
+// Expand a CSS box shorthand (1–4 values, e.g. padding "9px 18px") into per-side TWIP.
+// Only absolute units survive: fixupMargin returns a finite number for px/pt/cm/in, a
+// (non-finite) string for %, and undefined for unsupported units (review % guard).
+const cssBoxToTWIP = (value) => {
+  // CSS box shorthand fill rules expressed via defaults:
+  // 1 val → all; 2 → (top/bottom, left/right); 3 → left=right; 4 → t r b l.
+  const [top, right = top, bottom = top, left = right] = String(value)
+    .trim()
+    .split(/\s+/)
+    .map(fixupMargin);
+  const sides = { top, right, bottom, left };
+  return Object.fromEntries(Object.entries(sides).filter(([, v]) => Number.isFinite(v)));
+};
+
+// Merge resolved per-side padding (TWIP) into modifiedAttributes.cellPadding, which
+// buildTableCellProperties consumes as a cell-level w:tcMar. No-op for an empty side set.
+const mergeCellPadding = (modifiedAttributes, sides) => {
+  if (Object.keys(sides).length === 0) return;
+  // eslint-disable-next-line no-param-reassign
+  modifiedAttributes.cellPadding = { ...(modifiedAttributes.cellPadding || {}), ...sides };
+};
+
 const borderStyleParser = (style) => {
   // Accepted OOXML Values for border style: http://officeopenxml.com/WPtableBorders.php
   if (['dashed', 'dotted', 'double', 'inset', 'outset', 'none'].includes(style)) {
@@ -629,6 +651,19 @@ const modifiedStyleAttributesBuilder = (docxDocumentInstance, vNode, attributes,
         if (vNode.tagName === 'p') {
           modifiedAttributes.afterSpacing = fixupMargin(vNodeStyle['margin-bottom']);
         }
+      } else if (vNodeStyleKey === 'padding') {
+        // Cell padding → w:tcMar (consumed only by buildTableCellProperties). CSS source
+        // order is preserved, so a later padding-* key overrides this shorthand.
+        mergeCellPadding(modifiedAttributes, cssBoxToTWIP(vNodeStyleValue));
+      } else if (
+        vNodeStyleKey === 'padding-top' ||
+        vNodeStyleKey === 'padding-right' ||
+        vNodeStyleKey === 'padding-bottom' ||
+        vNodeStyleKey === 'padding-left'
+      ) {
+        const side = vNodeStyleKey.slice('padding-'.length);
+        const twip = fixupMargin(vNodeStyleValue);
+        if (Number.isFinite(twip)) mergeCellPadding(modifiedAttributes, { [side]: twip });
       } else if (vNodeStyleKey === 'display') {
         modifiedAttributes.display = vNodeStyle.display;
       } else if (vNodeStyleKey === 'width') {
@@ -806,12 +841,45 @@ const rprAttributeSortIndex = (key) => {
 // runPropertiesFragment (e.g. the phrasing-tag branch in buildRun, where
 // imports happen in HTML source order rather than spec slot order).
 const RPR_ELEMENT_ORDER = [
-  'rStyle', 'rFonts', 'b', 'bCs', 'i', 'iCs', 'caps', 'smallCaps',
-  'strike', 'dstrike', 'outline', 'shadow', 'emboss', 'imprint',
-  'noProof', 'snapToGrid', 'vanish', 'webHidden', 'color', 'spacing',
-  'w', 'kern', 'position', 'sz', 'szCs', 'highlight', 'u', 'effect',
-  'bdr', 'shd', 'fitText', 'vertAlign', 'rtl', 'cs', 'em', 'lang',
-  'eastAsianLayout', 'specVanish', 'oMath',
+  'rStyle',
+  'rFonts',
+  'b',
+  'bCs',
+  'i',
+  'iCs',
+  'caps',
+  'smallCaps',
+  'strike',
+  'dstrike',
+  'outline',
+  'shadow',
+  'emboss',
+  'imprint',
+  'noProof',
+  'snapToGrid',
+  'vanish',
+  'webHidden',
+  'color',
+  'spacing',
+  'w',
+  'kern',
+  'position',
+  'sz',
+  'szCs',
+  'highlight',
+  'u',
+  'effect',
+  'bdr',
+  'shd',
+  'fitText',
+  'vertAlign',
+  'rtl',
+  'cs',
+  'em',
+  'lang',
+  'eastAsianLayout',
+  'specVanish',
+  'oMath',
 ];
 const rprElementSortIndex = (name) => {
   const idx = RPR_ELEMENT_ORDER.indexOf(name);
@@ -828,7 +896,8 @@ const sortRprChildren = (rprFragment) => {
   // Match each child element: either self-closing <w:foo .../> or paired
   // <w:foo>...</w:foo>. Children that nest other elements with the same
   // namespace are matched greedily up to their own closing tag.
-  const childRe = /<w:([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\/>|<w:([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>[\s\S]*?<\/w:\2>/g;
+  const childRe =
+    /<w:([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\/>|<w:([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>[\s\S]*?<\/w:\2>/g;
   const children = [];
   let m;
   while ((m = childRe.exec(inner)) !== null) {
@@ -1948,31 +2017,44 @@ const buildTableCellWidth = (tableCellWidth, parentWidth) =>
     .att('@w', 'type', 'dxa')
     .up();
 
+// ECMA-376 CT_TcPr child order (subset we emit). Drives deterministic <w:tcPr> output.
+const TC_PR_ORDER = [
+  'width', // w:tcW
+  'colSpan', // w:gridSpan
+  'rowSpan', // w:vMerge
+  'tableCellBorder', // w:tcBorders
+  'backgroundColor', // w:shd
+  'cellPadding', // w:tcMar
+  'verticalAlign', // w:vAlign
+];
+
 const buildTableCellProperties = (attributes, parentWidth) => {
   const tableCellPropertiesFragment = fragment({ namespaceAlias: { w: namespaces.w } }).ele(
     '@w',
     'tcPr'
   );
   if (attributes && attributes.constructor === Object) {
-    Object.keys(attributes).forEach((key) => {
+    // Process in ECMA-376 CT_TcPr child order, not attribute-insertion order, so the
+    // emitted <w:tcPr> children are always schema-valid (review F-01):
+    // tcW → gridSpan → vMerge → tcBorders → shd → tcMar → vAlign.
+    TC_PR_ORDER.forEach((key) => {
+      if (!(key in attributes)) return;
       switch (key) {
-        case 'backgroundColor':
-          const shadingFragment = buildShading(attributes[key]);
-          tableCellPropertiesFragment.import(shadingFragment);
-          // eslint-disable-next-line no-param-reassign
-          delete attributes.backgroundColor;
-          break;
-        case 'verticalAlign':
-          const verticalAlignmentFragment = buildVerticalAlignment(attributes[key]);
-          tableCellPropertiesFragment.import(verticalAlignmentFragment);
-          // eslint-disable-next-line no-param-reassign
-          delete attributes.verticalAlign;
+        case 'width':
+          const widthFragment = buildTableCellWidth(attributes[key], parentWidth);
+          tableCellPropertiesFragment.import(widthFragment);
+          delete attributes.width;
           break;
         case 'colSpan':
           const gridSpanFragment = buildGridSpanFragment(attributes[key]);
           tableCellPropertiesFragment.import(gridSpanFragment);
           // eslint-disable-next-line no-param-reassign
           delete attributes.colSpan;
+          break;
+        case 'rowSpan':
+          const verticalMergeFragment = buildVerticalMerge(attributes[key]);
+          tableCellPropertiesFragment.import(verticalMergeFragment);
+          delete attributes.rowSpan;
           break;
         case 'tableCellBorder':
           const { top, left, bottom, right } = attributes[key];
@@ -1983,16 +2065,24 @@ const buildTableCellProperties = (attributes, parentWidth) => {
           // eslint-disable-next-line no-param-reassign
           delete attributes.tableCellBorder;
           break;
-        case 'rowSpan':
-          const verticalMergeFragment = buildVerticalMerge(attributes[key]);
-          tableCellPropertiesFragment.import(verticalMergeFragment);
-
-          delete attributes.rowSpan;
+        case 'backgroundColor':
+          const shadingFragment = buildShading(attributes[key]);
+          tableCellPropertiesFragment.import(shadingFragment);
+          // eslint-disable-next-line no-param-reassign
+          delete attributes.backgroundColor;
           break;
-        case 'width':
-          const widthFragment = buildTableCellWidth(attributes[key], parentWidth);
-          tableCellPropertiesFragment.import(widthFragment);
-          delete attributes.width;
+        case 'cellPadding':
+          // eslint-disable-next-line no-use-before-define
+          const cellMarginFragment = buildTableCellMargin(attributes[key]);
+          tableCellPropertiesFragment.import(cellMarginFragment);
+          // eslint-disable-next-line no-param-reassign
+          delete attributes.cellPadding;
+          break;
+        case 'verticalAlign':
+          const verticalAlignmentFragment = buildVerticalAlignment(attributes[key]);
+          tableCellPropertiesFragment.import(verticalAlignmentFragment);
+          // eslint-disable-next-line no-param-reassign
+          delete attributes.verticalAlign;
           break;
       }
     });
@@ -2082,7 +2172,7 @@ const fixupTableCellBorder = (
       indexes.sort((a, b) => a.index - b.index);
 
       let borderSize = attributes.tableCellBorder.top;
-      let borderColor =  attributes.tableCellBorder.colors.top;
+      let borderColor = attributes.tableCellBorder.colors.top;
       let borderStrike = attributes.tableCellBorder.strokes.top;
 
       for (let idxItem = 0; idxItem < indexes.length; idxItem++) {
@@ -2492,7 +2582,7 @@ const fixupTableCellBorder = (
       // already processed
       if (rowIndexEquivalentLast !== -1) continue;
       // checking for both 0 and '0'
-      if (tableCellStyles[tableCellStyle] == '0') {
+      if (String(tableCellStyles[tableCellStyle]) === '0') {
         attributes.tableCellBorder = {
           ...attributes.tableCellBorder,
           bottom: 0,
@@ -2514,7 +2604,7 @@ const fixupTableCellBorder = (
       // already processed
       if (columnIndexEquivalentFirst !== -1) continue;
       // checking for both 0 and '0'
-      if (tableCellStyles[tableCellStyle] == '0') {
+      if (String(tableCellStyles[tableCellStyle]) === '0') {
         attributes.tableCellBorder = {
           ...attributes.tableCellBorder,
           left: 0,
@@ -2537,7 +2627,7 @@ const fixupTableCellBorder = (
       if (columnIndexEquivalentLast !== -1) continue;
 
       // checking for both 0 and '0'
-      if (tableCellStyles[tableCellStyle] == '0') {
+      if (String(tableCellStyles[tableCellStyle]) === '0') {
         attributes.tableCellBorder = {
           ...attributes.tableCellBorder,
           right: 0,
@@ -2992,10 +3082,12 @@ const buildTableCell = async (
           lastImportWasTable = false;
         }
       } else if (isVNode(childVNode) && childVNode.tagName === 'table') {
-        // Issue #147: render nested <table> in a table cell.
-        if (!cellHasContent) {
-          // Prepend a hairline <w:p> so the inner table's top border
-          // doesn't collapse against the cell's top edge.
+        // Issue #147 + T7 F-02: render nested <table> in a table cell.
+        if (!cellHasContent || lastImportWasTable) {
+          // Prepend a hairline <w:p> when the cell starts with a table (top border
+          // collapse against the cell edge) OR the previous import was also a table —
+          // sibling nested tables (e.g. a decorated div wrapping two flex rows) would
+          // otherwise sit directly adjacent and collapse their borders.
           tableCellFragment.import(buildNestedTableSentinelParagraph());
         }
         // eslint-disable-next-line no-use-before-define
@@ -3490,6 +3582,20 @@ const buildCellMargin = (side, margin) =>
     .att('@w', 'w', String(margin))
     .up();
 
+// Cell-level margins (w:tcMar) from CSS padding (TWIP per side). Overrides the table
+// default w:tblCellMar for this cell only; sides without a value are omitted. Distinct
+// from buildTableCellMargins (plural) which builds the table-level w:tblCellMar.
+const buildTableCellMargin = (padding) => {
+  const tableCellMarFragment = fragment({ namespaceAlias: { w: namespaces.w } }).ele('@w', 'tcMar');
+  ['top', 'bottom', 'left', 'right'].forEach((side) => {
+    if (padding && Number.isFinite(padding[side])) {
+      tableCellMarFragment.import(buildCellMargin(side, padding[side]));
+    }
+  });
+  tableCellMarFragment.up();
+  return tableCellMarFragment;
+};
+
 const buildTableCellMargins = (margin) => {
   const tableCellMarFragment = fragment({ namespaceAlias: { w: namespaces.w } }).ele(
     '@w',
@@ -3549,7 +3655,7 @@ const buildTableProperties = (attributes) => {
   tablePropertiesFragment.import(tableCellMarginFragment);
 
   // Use align attribute if provided, otherwise default to center
-  const tableAlignment = (attributes && attributes.tableAlign) ? attributes.tableAlign : 'center';
+  const tableAlignment = attributes && attributes.tableAlign ? attributes.tableAlign : 'center';
   const alignmentFragment = buildHorizontalAlignment(tableAlignment);
   tablePropertiesFragment.import(alignmentFragment);
   if (attributes && attributes.tableAlign) {

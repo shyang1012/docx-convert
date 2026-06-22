@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# git native hook (no husky). beads issue-DB sync is delegated to the beads-managed
+# script, then lint-staged runs prettier+eslint on staged src. [shyang 2026-06-22]
+if [ -x .beads/hooks/pre-commit ]; then
+  .beads/hooks/pre-commit "$@" || exit $?
+fi
+npx --no-install lint-staged

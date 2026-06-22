@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# Delegate to the beads-managed hook (issue-DB sync). [shyang 2026-06-22]
+if [ -x .beads/hooks/post-merge ]; then
+  exec .beads/hooks/post-merge "$@"
+fi

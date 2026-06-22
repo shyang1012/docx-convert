@@ -2,7 +2,7 @@
 const fs = require('fs');
 // Use the built version, or install via: npm install @turbodocx/html-to-docx
 // const HTMLtoDOCX = require('@turbodocx/html-to-docx');
-const HTMLtoDOCX = require('../dist/html-to-docx.umd');
+const HTMLtoDOCX = require('../dist/docx-convert.cjs.js');
 
 // Sample SVG images as base64 data URLs
 const circleSVG = 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+CiAgPHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNmMGYwZjAiLz4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0MCIgZmlsbD0iIzM0OThkYiIgc3Ryb2tlPSIjMmMzZTUwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+';

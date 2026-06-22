@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Memory
+
+Project memory lives in-repo for machine/agent independence. At session start, read `.claude/memory/MEMORY.md` (the index + long-lived operating rules). It points into **bd (beads)** for detail — `bd prime` / `bd recall <key>`. The `/시작` command loads this automatically.
+
 ## What this is
 
 `docx-convert` is a pure-JavaScript library that converts an HTML string into a `.docx` (Office Open XML / OOXML) document — no headless browser, no LibreOffice, no native binaries required. Output is a `Buffer` (Node) or `Blob` (browser). The public entry is the default export in `index.js` (`generateContainer(htmlString, headerHTMLString, documentOptions, footerHTMLString)`).

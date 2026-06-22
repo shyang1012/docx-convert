@@ -1,7 +1,7 @@
 const fs = require('fs');
 // Use the built version, or install via: npm install @turbodocx/html-to-docx
 // const HTMLtoDOCX = require('@turbodocx/html-to-docx');
-const HTMLtoDOCX = require('../dist/html-to-docx.umd');
+const HTMLtoDOCX = require('../dist/docx-convert.cjs.js');
 
 // Simple HTML with inline SVG element
 const htmlContent = `
