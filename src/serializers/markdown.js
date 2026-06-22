@@ -20,7 +20,7 @@
 function escapeText(str) {
   return str
     .replace(/\\/g, '\\\\') // backslash first (must come before other replacements)
-    .replace(/[*_`[\]]/g, (ch) => `\\${ch}`);
+    .replace(/[*_`[\]|]/g, (ch) => `\\${ch}`); // | escaped so it can't break GFM table rows
 }
 
 /**
@@ -30,6 +30,7 @@ function escapeText(str) {
  * @returns {string}
  */
 function inline(node) {
+  if (!node) return '';
   // image
   if (node.type === 'image') {
     return `![${node.alt}]()`;
@@ -43,9 +44,10 @@ function inline(node) {
   // text run
   const { text, bold, italic, strike, code } = node;
 
-  // code takes precedence — render as literal, no other marks
+  // code takes precedence — render as literal, no other marks.
+  // If the content contains a backtick, fence with double backticks + padding spaces (GFM).
   if (code) {
-    return `\`${text}\``;
+    return text.includes('`') ? `\`\` ${text} \`\`` : `\`${text}\``;
   }
 
   // GFM emphasis delimiters must not have whitespace immediately inside them.
@@ -119,6 +121,7 @@ function block(b) {
       return listLines(b).join('\n');
 
     case 'table': {
+      if (!b.rows || b.rows.length === 0) return '';
       const [headerRow, ...bodyRows] = b.rows;
       const colCount = headerRow.length;
 

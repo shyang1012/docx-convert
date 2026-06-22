@@ -79,7 +79,7 @@ import { readFileSync } from 'node:fs';
 const md = await docxToMarkdown(readFileSync('input.docx'));
 ```
 
-Accepts a `Buffer` / `ArrayBuffer` / `Uint8Array` / `Blob`. Converts headings, paragraphs, inline styles (bold/italic/strike/code), links, lists, and tables; images become `![alt]()` placeholders. `extractMarkdown` is an alias (hwp-convert 정합).
+Accepts a `Buffer` / `ArrayBuffer` / `Uint8Array` / `Blob`. Converts headings, paragraphs, inline styles (bold/italic/strike/code), links, lists, and tables; images become `![alt]()` placeholders. `extractMarkdown` is an alias.
 
 ## Build / test
 

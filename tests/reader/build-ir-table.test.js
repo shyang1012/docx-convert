@@ -47,4 +47,12 @@ describe('build-ir: image placeholder', () => {
     const blocks = ir(body);
     expect(blocks[0].children).toEqual([{ type: 'image', alt: '' }]);
   });
+
+  // Final-review fix: numId=0 means "remove inherited numbering" → not a list.
+  test('numId=0 paragraph is a normal paragraph, not a list', () => {
+    const blocks = ir(
+      '<w:p><w:pPr><w:numPr><w:numId w:val="0"/></w:numPr></w:pPr><w:r><w:t>x</w:t></w:r></w:p>'
+    );
+    expect(blocks[0]).toEqual({ type: 'paragraph', children: [{ text: 'x' }] });
+  });
 });

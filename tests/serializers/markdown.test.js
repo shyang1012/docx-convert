@@ -216,3 +216,25 @@ describe('headings all levels', () => {
     expect(md).toBe(`${'#'.repeat(level)} H`);
   });
 });
+
+// Final-review regression fixes
+describe('review-fix regression', () => {
+  test('empty table does not crash, renders empty', () => {
+    expect(irToMarkdown([{ type: 'table', rows: [] }])).toBe('');
+  });
+
+  test('pipe in cell text is escaped so it cannot break table columns', () => {
+    const md = irToMarkdown([{ type: 'table', rows: [[[{ text: 'a|b' }], [{ text: 'c' }]]] }]);
+    expect(md.split('\n')[0]).toBe('| a\\|b | c |');
+  });
+
+  test('backtick inside inline code uses double-backtick fencing', () => {
+    expect(irToMarkdown([{ type: 'paragraph', children: [{ text: 'a`b', code: true }] }])).toBe(
+      '`` a`b ``'
+    );
+  });
+
+  test('null inline node is skipped, not thrown', () => {
+    expect(irToMarkdown([{ type: 'paragraph', children: [null, { text: 'x' }] }])).toBe('x');
+  });
+});

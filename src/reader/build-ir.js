@@ -82,7 +82,8 @@ const listInfoOf = (p, ctx) => {
   const numIdEl = findChild(numPr, 'w:numId');
   if (!numIdEl) return null;
   const numId = String(attr(numIdEl, 'w:val') || '');
-  if (!numId) return null;
+  // numId=0 means "remove inherited list numbering" → a normal paragraph, not a list item.
+  if (!numId || numId === '0') return null;
   const ilvlEl = findChild(numPr, 'w:ilvl');
   const ilvl = Number(attr(ilvlEl, 'w:val') || '0');
 
