@@ -91,13 +91,13 @@ bd create --type <type> --title "..."
 
 ## 배포 워크플로우
 
-**개발은 `dev`, 배포 결정 시 `main` 에 검증 + PR.**
+**개발은 `dev`, 배포 결정 시 `main` 에 검증 + PR.** `main` 은 GitHub branch protection 으로 **직접 push 차단**(PR 필수) — 배포는 반드시 PR 경유.
 
 1. **개발** — `dev` 브랜치에서 구현. TDD(테스트 먼저), 커밋, `git push origin dev`.
 2. **배포 결정** — PM 이 배포를 결정하면:
    1. **전체 검증** — `npm run build && npm run test:unit` 통과 + 대표 HTML 변환 산출물 Word 열림 확인(가능 시).
-   2. **PR 생성** — `dev` → `main` PR. 변경 요약·검증 결과 기재.
-   3. **머지 후 배포** — `npm version <patch|minor|major>` → `npm publish`(prepublishOnly 가 clean→build→test 자동 실행). publish 는 PM 승인 하 실행.
+   2. **버전 bump(dev) + PR** — `npm version <patch|minor|major> --no-git-tag-version` 로 dev 에서 버전만 올려 커밋(`main` 직접 push 불가하므로 bump 커밋을 PR 에 실음) → `dev` → `main` PR. 변경 요약·검증 결과 기재.
+   3. **머지 후 배포** — 머지 후 `main` 에서 **태그만** push(`git tag v* && git push origin v*`, 태그는 보호 대상 아님) → `npm publish`(prepublishOnly 가 clean→build→test 자동 실행). publish 는 PM 승인 하 실행.
 
 ## 코드 서명
 
@@ -111,7 +111,7 @@ bd create --type <type> --title "..."
 
 ## 금지 / 확인 (모든 모드)
 
-- 🔴 자발 금지: `git push --force` / `git reset --hard` / 브랜치·태그 삭제 / `main` 직접 push(배포 외).
+- 🔴 자발 금지: `git push --force` / `git reset --hard` / 브랜치·태그 삭제 / `main` 직접 push(배포 외). — `main` 은 GitHub branch protection 으로 서버 차원 강제: PR 필수·enforce_admins(관리자 포함)·force-push/삭제 차단.
 - ⚠️ 실행 전 PM 확인: `npm publish`, PR 생성/머지, 공개 배포, 의존성 downgrade, CI 변경.
 
 ## Non-Interactive Shell
