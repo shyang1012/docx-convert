@@ -1,6 +1,6 @@
 # docx-convert
 
-Convert an HTML string into a `.docx` (Office Open XML) document — pure JavaScript, no headless browser, no LibreOffice, no native binaries. Its focus is **fidelity to the source HTML**: inline CSS styles are honored, and web-style `<div>` layouts using **flex/grid** are mapped onto **native Word tables**. Output is a `Buffer` (Node) or `Blob` (browser).
+Convert an HTML string into a `.docx` (Office Open XML) document — pure JavaScript, no headless browser, no LibreOffice, no native binaries. Its focus is **fidelity to the source HTML**: inline CSS styles and CSS-based layout are carried through to the Word document. Output is a `Buffer` (Node) or `Blob` (browser).
 
 [![npm](https://img.shields.io/npm/v/@shyang1012/docx-convert)](https://www.npmjs.com/package/@shyang1012/docx-convert)
 [![license](https://img.shields.io/npm/l/@shyang1012/docx-convert)](./LICENSE)
@@ -8,12 +8,7 @@ Convert an HTML string into a `.docx` (Office Open XML) document — pure JavaSc
 
 ## Highlights
 
-- **Inline-style fidelity** — inline CSS (color, alignment, weight, background, borders, padding…) is carried through to the corresponding Word run/paragraph/cell properties.
-- **flex/grid `<div>` → native Word table** — web layouts built with `display:flex` / `display:grid` on `<div>` containers are converted to real `.docx` tables:
-  - `flex-direction:row` (or implicit row) → a single-row table laying children out horizontally
-  - `flex-direction:column` → a one-column, N-row table laying children out vertically
-  - `display:grid` with explicit `grid-template-columns` → a row-major multi-column table
-  - `justify-content` controls the table's horizontal placement; `<div>` background / border / padding become cell shading, borders, and `w:tcMar`
+- **Style & layout fidelity** — inline CSS (color, alignment, weight, background, borders, padding…) and CSS-based layout are carried into the corresponding Word table / paragraph / run structure.
 - **Inline SVG** — embeds inline `<svg>` (rasterized via the optional `sharp` dependency).
 - **RTL** — right-to-left scripts (Hebrew, Arabic) via the `direction` option.
 - **`<tfoot>` rendering** — table footers (totals rows, etc.) render at the bottom of the table regardless of source position.
@@ -46,22 +41,6 @@ writeFileSync('output.docx', fileBuffer);
 ```
 
 In the browser the same call returns a `Blob`.
-
-### Layout mapping (flex `<div>` → table)
-
-A web-style two-column row built with flexbox becomes a real Word table — no manual table markup needed:
-
-```js
-const html = `
-  <div style="display:flex; gap:16px">
-    <div style="flex:1; background:#f5f5f5; padding:8px">Left column</div>
-    <div style="flex:1; padding:8px">Right column</div>
-  </div>`;
-
-const buffer = await HTMLtoDOCX(html);
-```
-
-The two child `<div>`s land side by side in a single-row, two-cell table, with the left cell shaded and both cells padded.
 
 ### Signature
 
@@ -104,7 +83,7 @@ Node >= 20. esbuild handles `.ts` natively, so the codebase can migrate to TypeS
 
 ## Roadmap
 
-- Nested layouts (flex/grid inside flex/grid)
+- Nested layout containers
 - Broader layout-fidelity validation and regression coverage
 
 ## License
