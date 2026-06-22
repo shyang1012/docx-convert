@@ -49,6 +49,8 @@ npm run test:unit  # vitest run
 npm run lint       # eslint --fix
 ```
 
+- **git hooks 활성화(clone 후 1회)**: `npm run prepare`(= `git config core.hooksPath .githooks`). `.npmrc` `ignore-scripts=true` 라 자동 실행 안 됨. 훅은 `.githooks`(husky 대신 네이티브) 마스터 — pre-commit=lint-staged + beads 위임, commit-msg=commitlint, 나머지=beads 위임. ⚠️ `bd hooks install` 재실행 시 `core.hooksPath` 가 `.beads/hooks` 로 되돌아갈 수 있으니 그때 `npm run prepare` 재실행.
+- 줄바꿈은 `.gitattributes`(`eol=lf`)로 LF 고정 — Windows 워킹트리가 CRLF여도 git/prettier 는 LF.
 - 소스는 현재 JS. esbuild 는 `.ts` 네이티브 지원 → 추후 TypeScript 점진 전환 시 빌드 변경 불필요.
 - `sharp` 는 SVG→PNG 래스터화에만 쓰이는 optional 네이티브 의존성. 브라우저 빌드는 null stub.
 - 코어는 브라우저 안전을 유지 — Node 전용 API 추가 시 빌드 영향 확인.

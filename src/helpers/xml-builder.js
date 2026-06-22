@@ -841,12 +841,45 @@ const rprAttributeSortIndex = (key) => {
 // runPropertiesFragment (e.g. the phrasing-tag branch in buildRun, where
 // imports happen in HTML source order rather than spec slot order).
 const RPR_ELEMENT_ORDER = [
-  'rStyle', 'rFonts', 'b', 'bCs', 'i', 'iCs', 'caps', 'smallCaps',
-  'strike', 'dstrike', 'outline', 'shadow', 'emboss', 'imprint',
-  'noProof', 'snapToGrid', 'vanish', 'webHidden', 'color', 'spacing',
-  'w', 'kern', 'position', 'sz', 'szCs', 'highlight', 'u', 'effect',
-  'bdr', 'shd', 'fitText', 'vertAlign', 'rtl', 'cs', 'em', 'lang',
-  'eastAsianLayout', 'specVanish', 'oMath',
+  'rStyle',
+  'rFonts',
+  'b',
+  'bCs',
+  'i',
+  'iCs',
+  'caps',
+  'smallCaps',
+  'strike',
+  'dstrike',
+  'outline',
+  'shadow',
+  'emboss',
+  'imprint',
+  'noProof',
+  'snapToGrid',
+  'vanish',
+  'webHidden',
+  'color',
+  'spacing',
+  'w',
+  'kern',
+  'position',
+  'sz',
+  'szCs',
+  'highlight',
+  'u',
+  'effect',
+  'bdr',
+  'shd',
+  'fitText',
+  'vertAlign',
+  'rtl',
+  'cs',
+  'em',
+  'lang',
+  'eastAsianLayout',
+  'specVanish',
+  'oMath',
 ];
 const rprElementSortIndex = (name) => {
   const idx = RPR_ELEMENT_ORDER.indexOf(name);
@@ -863,7 +896,8 @@ const sortRprChildren = (rprFragment) => {
   // Match each child element: either self-closing <w:foo .../> or paired
   // <w:foo>...</w:foo>. Children that nest other elements with the same
   // namespace are matched greedily up to their own closing tag.
-  const childRe = /<w:([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\/>|<w:([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>[\s\S]*?<\/w:\2>/g;
+  const childRe =
+    /<w:([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\/>|<w:([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>[\s\S]*?<\/w:\2>/g;
   const children = [];
   let m;
   while ((m = childRe.exec(inner)) !== null) {
@@ -2138,7 +2172,7 @@ const fixupTableCellBorder = (
       indexes.sort((a, b) => a.index - b.index);
 
       let borderSize = attributes.tableCellBorder.top;
-      let borderColor =  attributes.tableCellBorder.colors.top;
+      let borderColor = attributes.tableCellBorder.colors.top;
       let borderStrike = attributes.tableCellBorder.strokes.top;
 
       for (let idxItem = 0; idxItem < indexes.length; idxItem++) {
@@ -2548,7 +2582,7 @@ const fixupTableCellBorder = (
       // already processed
       if (rowIndexEquivalentLast !== -1) continue;
       // checking for both 0 and '0'
-      if (tableCellStyles[tableCellStyle] == '0') {
+      if (String(tableCellStyles[tableCellStyle]) === '0') {
         attributes.tableCellBorder = {
           ...attributes.tableCellBorder,
           bottom: 0,
@@ -2570,7 +2604,7 @@ const fixupTableCellBorder = (
       // already processed
       if (columnIndexEquivalentFirst !== -1) continue;
       // checking for both 0 and '0'
-      if (tableCellStyles[tableCellStyle] == '0') {
+      if (String(tableCellStyles[tableCellStyle]) === '0') {
         attributes.tableCellBorder = {
           ...attributes.tableCellBorder,
           left: 0,
@@ -2593,7 +2627,7 @@ const fixupTableCellBorder = (
       if (columnIndexEquivalentLast !== -1) continue;
 
       // checking for both 0 and '0'
-      if (tableCellStyles[tableCellStyle] == '0') {
+      if (String(tableCellStyles[tableCellStyle]) === '0') {
         attributes.tableCellBorder = {
           ...attributes.tableCellBorder,
           right: 0,
@@ -3552,10 +3586,7 @@ const buildCellMargin = (side, margin) =>
 // default w:tblCellMar for this cell only; sides without a value are omitted. Distinct
 // from buildTableCellMargins (plural) which builds the table-level w:tblCellMar.
 const buildTableCellMargin = (padding) => {
-  const tableCellMarFragment = fragment({ namespaceAlias: { w: namespaces.w } }).ele(
-    '@w',
-    'tcMar'
-  );
+  const tableCellMarFragment = fragment({ namespaceAlias: { w: namespaces.w } }).ele('@w', 'tcMar');
   ['top', 'bottom', 'left', 'right'].forEach((side) => {
     if (padding && Number.isFinite(padding[side])) {
       tableCellMarFragment.import(buildCellMargin(side, padding[side]));
@@ -3624,7 +3655,7 @@ const buildTableProperties = (attributes) => {
   tablePropertiesFragment.import(tableCellMarginFragment);
 
   // Use align attribute if provided, otherwise default to center
-  const tableAlignment = (attributes && attributes.tableAlign) ? attributes.tableAlign : 'center';
+  const tableAlignment = attributes && attributes.tableAlign ? attributes.tableAlign : 'center';
   const alignmentFragment = buildHorizontalAlignment(tableAlignment);
   tablePropertiesFragment.import(alignmentFragment);
   if (attributes && attributes.tableAlign) {

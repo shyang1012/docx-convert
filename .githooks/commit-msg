@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Conventional Commits enforcement (commitlint). beads has no commit-msg hook.
+npx --no-install commitlint --edit "$1"

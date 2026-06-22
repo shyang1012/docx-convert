@@ -2,9 +2,6 @@ import { create, fragment } from 'xmlbuilder2';
 import { nanoid } from 'nanoid';
 import { parseDataUrl, isSVG, convertSVGtoPNG, parseSVGDimensions } from './utils/image';
 
-// Track if we've already warned about missing sharp (show once per process)
-let sharpMissingWarningShown = false;
-
 import {
   generateCoreXML,
   generateStylesXML,
@@ -40,6 +37,9 @@ import {
 } from './constants';
 import ListStyleBuilder from './utils/list';
 import { fontFamilyToTableObject } from './utils/font-family-conversion';
+
+// Track if we've already warned about missing sharp (show once per process)
+let sharpMissingWarningShown = false;
 
 function generateContentTypesFragments(contentTypesXML, type, objects) {
   if (objects && Array.isArray(objects)) {
@@ -517,7 +517,7 @@ class DocxDocument {
     }
 
     let base64FileContent = parsed.base64;
-    let mimeType = parsed.mimeType;
+    let { mimeType } = parsed;
 
     // Extract file extension from MIME type (e.g., image/jpeg -> jpeg)
     const mimeTypePart = mimeType.match(/\/(.*?)$/);
@@ -526,8 +526,7 @@ class DocxDocument {
 
     // Handle SVG images based on svgHandling option
     const svgHandling =
-      this.imageProcessing?.svgHandling ||
-      defaultDocumentOptions.imageProcessing.svgHandling;
+      this.imageProcessing?.svgHandling || defaultDocumentOptions.imageProcessing.svgHandling;
 
     if (isSVG(mimeType) && svgHandling === 'convert') {
       try {

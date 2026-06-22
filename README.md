@@ -81,6 +81,8 @@ npm run lint        # eslint --fix
 
 Node >= 20. esbuild handles `.ts` natively, so the codebase can migrate to TypeScript incrementally without a build change.
 
+Git hooks (lint-staged + commitlint) live in `.githooks`. After cloning, enable them once with `npm run prepare`.
+
 ## Roadmap
 
 - Nested layout containers
