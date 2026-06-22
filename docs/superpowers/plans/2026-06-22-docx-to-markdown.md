@@ -54,6 +54,11 @@ test('parses namespaced tags, attributes, and self-closing', () => {
   const t = p.children[1].children[0]; // w:r > w:t
   expect(t.children[0].data).toBe('hi'); // text node
 });
+
+test('namespaced r:id attribute survives (used by Task 4 hyperlinks)', () => {
+  const link = parseOoxml('<w:hyperlink r:id="rId5"/>').children[0];
+  expect(link.attribs['r:id']).toBe('rId5'); // confirm at PoC gate, not later
+});
 ```
 
 - [ ] **Step 2: Run to verify it fails** — `npx vitest run tests/reader/ooxml-parse.test.js` → FAIL (module not found). **This is the PoC gate: if htmlparser2 xmlMode cannot preserve `w:val`/namespaced names, switch this file to a `sax`-based impl — build-ir is unaffected.**
@@ -401,6 +406,8 @@ test('extractMarkdown is an alias', () => {
 ```
 
 - [ ] **Step 2: Run → FAIL.**
+> Before implementing `parseNumbering`, unzip a real docx (`npm run diff:docx` or extract `word/numbering.xml`) to see the actual `w:numFmt` values and the `w:num`→`w:abstractNum` indirection. `parseNumbering` must: read each `<w:num w:numId>`→`<w:abstractNumId>`, then that `<w:abstractNum>`'s `<w:lvl w:ilvl>`→`<w:numFmt w:val>` (`decimal`/`bullet`/…). Map fmt → `ordered` (decimal/lowerLetter/… = ordered; bullet/none = unordered).
+
 - [ ] **Step 3: Implement** — `parse-aux.js`: `parseRels(relsXml)` → `{rId: target}`, `parseNumbering(numberingXml)` → `{numId:{ilvl:'decimal'|'bullet'}}` (resolve `w:num`→`w:abstractNum`→`w:lvl`/`w:numFmt`). In `index.js`:
 
 ```js
