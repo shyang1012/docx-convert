@@ -12,9 +12,17 @@ import { parseOoxml, isEl, childrenOf, findChild, findAll, attr } from './ooxml-
 export const parseRels = (relsXml) => {
   const doc = parseOoxml(relsXml);
   const result = {};
-  // Walk all descendants looking for <Relationship> elements
+  // Walk all descendants looking for <Relationship> elements.
+  // The document root (type === 'root') is not an element, so we recurse
+  // into its children directly instead of gating on isEl at the top level.
   const walk = (node) => {
-    if (!isEl(node)) return;
+    if (!isEl(node)) {
+      // For root/document nodes, still recurse into children
+      for (const child of childrenOf(node)) {
+        walk(child);
+      }
+      return;
+    }
     if (node.name === 'Relationship') {
       const id = attr(node, 'Id');
       const target = attr(node, 'Target');
