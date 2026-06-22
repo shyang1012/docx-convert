@@ -10,7 +10,13 @@
 // but does NOT convert them yet. The actual flexRow/flexColumn/grid -> table conversions
 // land in T2~T4, slotting into the marked extension point below. T1 must be a pure no-op:
 // identical render output, original tree never mutated.
-// [shyang 2026-06-21]
+//
+// T7 (docx-convert-xku.7): nested layout containers are handled by the child-first
+// recursion in transformNode (children convert before their parent), so inner flex/grid
+// become tables that the outer container wraps as table-in-cell — no extra path needed.
+// Two real fixes landed with T7's TDD: blockDivToTable now drops blank whitespace (F-03),
+// and buildTableCell separates consecutive nested tables in one cell (F-02, xml-builder).
+// [shyang 2026-06-21, T7 2026-06-22]
 
 import { cloneDeep } from 'lodash';
 import { VNode, isVNode, isVText } from '../vdom/index';
@@ -190,7 +196,11 @@ const blockDivToTable = (children, style) => {
   const cellStyle = { ...style };
   delete cellStyle.width; // width belongs on the table, not the cell
   delete cellStyle.display; // keep the cell's paragraph off the display==='block' gate
-  const td = createElement('td', cellStyle, children);
+  // Drop blank pretty-print whitespace so a decorated wrapper with newlines around a
+  // nested layout doesn't emit empty paragraphs in the cell (mirrors flexRow/flexColumn/
+  // grid; T7 review F-03). Real content text is preserved.
+  const cellChildren = children.filter((child) => !(isVText(child) && child.text.trim() === ''));
+  const td = createElement('td', cellStyle, cellChildren);
   const row = createElement('tr', {}, [td]);
   const tableStyle = style.width ? { width: style.width } : {};
   return createElement('table', tableStyle, [row], { align: 'left' });

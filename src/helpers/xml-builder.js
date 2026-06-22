@@ -3048,10 +3048,12 @@ const buildTableCell = async (
           lastImportWasTable = false;
         }
       } else if (isVNode(childVNode) && childVNode.tagName === 'table') {
-        // Issue #147: render nested <table> in a table cell.
-        if (!cellHasContent) {
-          // Prepend a hairline <w:p> so the inner table's top border
-          // doesn't collapse against the cell's top edge.
+        // Issue #147 + T7 F-02: render nested <table> in a table cell.
+        if (!cellHasContent || lastImportWasTable) {
+          // Prepend a hairline <w:p> when the cell starts with a table (top border
+          // collapse against the cell edge) OR the previous import was also a table —
+          // sibling nested tables (e.g. a decorated div wrapping two flex rows) would
+          // otherwise sit directly adjacent and collapse their borders.
           tableCellFragment.import(buildNestedTableSentinelParagraph());
         }
         // eslint-disable-next-line no-use-before-define

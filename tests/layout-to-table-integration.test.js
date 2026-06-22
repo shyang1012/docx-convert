@@ -108,3 +108,41 @@ describe('layout-to-table integration', () => {
     expect(parsed.xml).toMatch(/w:jc w:val="right"/);
   });
 });
+
+// T7 (docx-convert-xku.7): nested layout containers, end-to-end. Branch-split so a single
+// case can't false-green across flex/grid/decorated paths (review F-01), plus the
+// consecutive-nested-table separator (review F-02). [shyang 2026-06-22]
+describe('layout-to-table integration — T7 nested', () => {
+  const gen = async (html) => parseDOCX(await HTMLtoDOCX(html));
+
+  test('F-01: flex containing a flex column → nested w:tbl inside a cell', async () => {
+    const parsed = await gen(
+      '<div style="display:flex"><div style="display:flex;flex-direction:column">' +
+        '<span>r1</span><span>r2</span></div><span>side</span></div>'
+    );
+    expect(parsed.xml).toMatch(/<w:tbl[\s\S]*?<w:tc[\s\S]*?<w:tbl/); // table-in-cell
+    expect(parsed.paragraphs.map((p) => p.text).join(' ')).toContain('r1');
+  });
+
+  test('F-01: grid containing a flex row → nested w:tbl inside a grid cell', async () => {
+    const parsed = await gen(
+      '<div style="display:grid;grid-template-columns:120px 120px">' +
+        '<div style="display:flex"><span>x</span><span>y</span></div><span>z</span></div>'
+    );
+    expect(parsed.xml).toMatch(/<w:tbl[\s\S]*?<w:tc[\s\S]*?<w:tbl/);
+    expect(parsed.paragraphs.map((p) => p.text).join(' ')).toContain('x');
+  });
+
+  test('F-02: consecutive nested tables in one decorated cell are separated (no adjacent w:tbl)', async () => {
+    const parsed = await gen(
+      '<div style="background-color:#eeeeee">\n' +
+        '  <div style="display:flex"><span>A1</span><span>A2</span></div>\n' +
+        '  <div style="display:flex"><span>B1</span><span>B2</span></div>\n' +
+        '</div>'
+    );
+    // both flex rows become nested tables in the same wrapper cell; they must not touch
+    // (adjacent </w:tbl><w:tbl> = collapsed borders / Word render glitch).
+    expect(parsed.xml).not.toMatch(/<\/w:tbl>\s*<w:tbl[ >]/);
+    expect(parsed.paragraphs.map((p) => p.text).join(' ')).toContain('A1');
+  });
+});

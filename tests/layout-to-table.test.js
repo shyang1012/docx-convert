@@ -418,3 +418,93 @@ describe('layout-to-table (T1 scaffolding)', () => {
     });
   });
 });
+
+// T7 (docx-convert-xku.7): nested layout containers. transformNode is child-first
+// (recurses into children before converting the parent), so inner flex/grid become
+// tables first and the outer container wraps them as table-in-cell. These tests pin
+// that recursive behavior and the F-03 whitespace fix. OOXML-level separator (F-02)
+// is covered in layout-to-table-integration.test.js. [shyang 2026-06-22]
+describe('layout-to-table (T7 nested layouts)', () => {
+  const div = (style, children) => new VNode('div', { attributes: {}, style }, children);
+  const flexRow = (children, extra = {}) =>
+    div({ display: 'flex', 'flex-direction': 'row', ...extra }, children);
+  const flexCol = (children, extra = {}) =>
+    div({ display: 'flex', 'flex-direction': 'column', ...extra }, children);
+  const grid = (cols, children) =>
+    div({ display: 'grid', 'grid-template-columns': cols }, children);
+  const leaf = (t) => div({}, [new VText(t)]); // plain (no-op) container child
+
+  test('flex row containing a flex column → outer 1-row table, inner column table in a cell', () => {
+    const out = transformLayoutTree(flexRow([flexCol([leaf('a'), leaf('b')]), leaf('c')]));
+    expect(out.tagName).toBe('table');
+    const row = out.children[0];
+    expect(row.tagName).toBe('tr');
+    expect(row.children.length).toBe(2); // two <td>
+    const innerTable = row.children[0].children[0];
+    expect(innerTable.tagName).toBe('table'); // nested column table
+    expect(innerTable.children.length).toBe(2); // column → N rows
+  });
+
+  test('flex column containing a flex row → outer 1-col table, inner row table in a cell', () => {
+    const out = transformLayoutTree(flexCol([flexRow([leaf('a'), leaf('b')])]));
+    expect(out.tagName).toBe('table');
+    expect(out.children.length).toBe(1); // one row
+    const innerTable = out.children[0].children[0].children[0];
+    expect(innerTable.tagName).toBe('table');
+    expect(innerTable.children[0].children.length).toBe(2); // inner row has 2 cells
+  });
+
+  test('flex row containing a grid → grid becomes multi-col table inside the cell', () => {
+    const out = transformLayoutTree(flexRow([grid('100px 100px', [leaf('a'), leaf('b')])]));
+    const innerTable = out.children[0].children[0].children[0];
+    expect(innerTable.tagName).toBe('table');
+    expect(innerTable.children[0].children.length).toBe(2); // 2 columns
+  });
+
+  test('grid containing a flex row → flex becomes single-row table inside a grid cell', () => {
+    const out = transformLayoutTree(grid('100px', [flexRow([leaf('a'), leaf('b')])]));
+    expect(out.tagName).toBe('table');
+    const innerTable = out.children[0].children[0].children[0];
+    expect(innerTable.tagName).toBe('table');
+  });
+
+  test('3-level nesting (flex > flex > flex) → table nested 3 deep', () => {
+    const out = transformLayoutTree(flexRow([flexCol([flexRow([leaf('a')])])]));
+    const lvl1 = out.children[0].children[0].children[0]; // outer td > column table
+    expect(lvl1.tagName).toBe('table');
+    const lvl2 = lvl1.children[0].children[0].children[0]; // column td > row table
+    expect(lvl2.tagName).toBe('table');
+  });
+
+  test('decorated div wrapping a flex → single-cell table with nested layout table', () => {
+    const out = transformLayoutTree(div({ 'background-color': '#eee' }, [flexRow([leaf('a'), leaf('b')])]));
+    expect(out.tagName).toBe('table');
+    const td = out.children[0].children[0];
+    expect(td.children[0].tagName).toBe('table'); // nested flex-row table
+  });
+
+  // F-03: blockDivToTable must drop blank VText like flexRow/flexColumn/grid do.
+  test('decorated div drops pretty-printed whitespace around a nested flex (F-03)', () => {
+    const out = transformLayoutTree(
+      div({ 'background-color': '#eee' }, [new VText('\n  '), flexRow([leaf('a')]), new VText('\n')])
+    );
+    const td = out.children[0].children[0];
+    const blanks = td.children.filter((c) => isVText(c) && c.text.trim() === '');
+    expect(blanks.length).toBe(0);
+  });
+
+  test('empty nested container → inner stays a no-op div, no empty table', () => {
+    const out = transformLayoutTree(flexRow([flexCol([])]));
+    const innerCellChild = out.children[0].children[0].children[0];
+    expect(innerCellChild.tagName).toBe('div'); // not a table
+  });
+
+  test('absolute width propagates inner container → inner table → outer cell', () => {
+    const out = transformLayoutTree(flexRow([flexRow([leaf('a')], { width: '120px' })]));
+    const outerCell = out.children[0].children[0]; // <td>
+    const innerTable = outerCell.children[0];
+    expect(innerTable.tagName).toBe('table');
+    expect(innerTable.properties.style.width).toBe('120px'); // width carried to inner table
+    expect(outerCell.properties.style.width).toBe('120px'); // and read onto the outer cell
+  });
+});
