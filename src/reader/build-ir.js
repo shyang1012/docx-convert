@@ -19,21 +19,43 @@ const runToInline = (r) => {
   return inline;
 };
 
-const paragraphInlines = (p) =>
-  findAll(p, 'w:r')
-    .map(runToInline)
-    .filter((i) => i.text.length > 0);
+const headingLevel = (p) => {
+  const pPr = findChild(p, 'w:pPr');
+  const pStyle = pPr && findChild(pPr, 'w:pStyle');
+  const m = /^Heading([1-6])$/.exec(attr(pStyle, 'w:val') || '');
+  return m ? Number(m[1]) : null;
+};
 
-const paragraphToBlock = (p) => ({ type: 'paragraph', children: paragraphInlines(p) });
+// Replaces paragraphInlines: also handles <w:hyperlink>.
+const collectInlines = (parent, ctx) => {
+  const out = [];
+  for (const c of childrenOf(parent)) {
+    if (!isEl(c)) continue;
+    if (c.name === 'w:r') {
+      const inline = runToInline(c);
+      if (inline.text.length) out.push(inline);
+    } else if (c.name === 'w:hyperlink') {
+      const href = (ctx.rels || {})[attr(c, 'r:id')] || '';
+      out.push({ type: 'link', href, children: collectInlines(c, ctx) });
+    }
+  }
+  return out;
+};
 
-// ctx is accepted for future use (Task 4+: rels, numbering)
-// eslint-disable-next-line no-unused-vars
+const paragraphToBlock = (p, ctx) => {
+  const level = headingLevel(p);
+  if (level !== null) {
+    return { type: 'heading', level, children: collectInlines(p, ctx) };
+  }
+  return { type: 'paragraph', children: collectInlines(p, ctx) };
+};
+
 export const buildIr = (doc, ctx = {}) => {
   const body = bodyOf(doc);
   const blocks = [];
   for (const node of childrenOf(body)) {
     if (!isEl(node)) continue;
-    if (node.name === 'w:p') blocks.push(paragraphToBlock(node));
+    if (node.name === 'w:p') blocks.push(paragraphToBlock(node, ctx));
     // w:tbl handled in Task 6
   }
   return blocks;
