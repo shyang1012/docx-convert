@@ -1,33 +1,33 @@
-# This workflow runs comprehensive tests on pull requests and pushes to main/develop branches
-# Ensures code quality and prevents regressions before merging
+# Runs the build + unit test gate on PRs targeting main (and pushes to main).
+# Mirrors the local deploy gate (npm run build && npm run test:unit). Example scripts
+# (test:node/headings/ts) are manual/local only — they hit the network and are not a
+# CI gate. [shyang 2026-06-22]
 
 name: Test Pull Request
 
 on:
   pull_request:
     branches:
-      - main      # Run tests on PRs targeting main branch
-      - develop   # Run tests on PRs targeting develop branch
+      - main
   push:
     branches:
-      - main      # Run tests on direct pushes to main
-      - develop   # Run tests on direct pushes to develop
+      - main
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
 
-      - name: Install dependencies
-        run: npm ci  # Clean install to ensure reproducible builds
+      # .npmrc min-release-age needs npm 11.10+
+      - run: npm install -g npm@latest
 
-      - name: Run all tests
-        # Runs: unit tests (Jest), integration tests, heading styles examples, and TypeScript tests
-        run: npm run test:all
+      - run: npm ci
+
+      - run: npm run build
+
+      - run: npm run test:unit
