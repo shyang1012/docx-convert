@@ -65,6 +65,10 @@ Inline =
 
 엣지: 빈 단락 → 빈 줄, 셀 내 강조 유지, 중첩 리스트 ilvl 기반 들여쓰기, 표 안 인라인.
 
+추가 규칙(리뷰 반영):
+- **인라인 코드**: `w:rStyle`(예: `Code`/monospace 계열) 감지 시 IR `code` → `` `text` ``. best-effort — 감지 안 되면 일반 텍스트. 복합 코드 스타일 정밀 매핑은 비범위.
+- **표 병합 셀**(`w:gridSpan`/`w:vMerge`): GFM 표가 병합을 지원하지 않으므로 **단순 평탄화**(병합 속성 무시, 셀 내용은 보존). 1차 확정 규칙.
+
 ## 테스트 (vitest)
 
 - **Round-trip**: 대표 HTML → `generateContainer` → docx → `docxToMarkdown` → md 가 핵심 요소(헤딩/표/리스트/강조/링크) 보존하는지. 정방향 자산을 역방향 검증에 재활용.
@@ -78,6 +82,6 @@ Inline =
 - `markdown → docx` 등 다른 매트릭스 방향.
 
 ## 리스크 / 확인
-- htmlparser2 `xmlMode` 의 네임스페이스 태그(`w:p`)·self-closing 처리 — 구현 1단계 PoC 게이트.
+- htmlparser2 `xmlMode` 의 네임스페이스 태그(`w:p`)·self-closing 처리 — 구현 **1단계 PoC 체크포인트**. `src/reader/ooxml-parse.js` 모듈 경계가 **파서 교체 지점** — PoC 실패 시 이 계층만 `sax` 류로 교체하고 상위(build-ir)는 불변. 계획서 첫 단계에 이 경계를 명시.
 - numbering 중첩/연속성(numId 인스턴스, ilvl) 해석 복잡도 — 1차는 흔한 ol/ul·중첩까지, 복합 번호양식은 차수.
 - 브라우저 빌드(JSZip/htmlparser2 번들) 영향 — 코어 브라우저 안전 유지 확인.
