@@ -99,4 +99,12 @@ describe('layout-to-table integration', () => {
     expect(parsed.xml).toMatch(/w:w="135"/);
     expect(parsed.xml).toMatch(/w:w="270"/);
   });
+
+  test('T3: signature (flex column, align-items:flex-end) renders right-aligned', async () => {
+    const docx = await HTMLtoDOCX(inlineHTML);
+    const parsed = await parseDOCX(docx);
+    expect(parsed.xml).toContain('발주자');
+    // the signature column table carries a right table alignment (w:jc w:val="right" in tblPr)
+    expect(parsed.xml).toMatch(/w:jc w:val="right"/);
+  });
 });

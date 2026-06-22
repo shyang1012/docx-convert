@@ -125,6 +125,55 @@ const flexRowToTable = (node, children, style) => {
   return createElement('table', tableStyle, [row], { align });
 };
 
+// Read an absolute-length width off a VNode's inline style, or undefined.
+const absoluteChildWidth = (child) => {
+  const w =
+    isVNode(child) && child.properties && child.properties.style && child.properties.style.width;
+  return isAbsoluteWidth(w) ? w : undefined;
+};
+
+/**
+ * Convert a `display:flex; flex-direction:column` <div> into a one-column table so its
+ * children stack vertically in the DOCX. align-items is the *cross* (horizontal) axis
+ * here, so it maps to the table's left/right position (not cell vAlign as in a row).
+ * Mirror of flexRowToTable. (epic docx-convert-xku, T3)
+ *
+ * @param {VNode} node     original flex column container
+ * @param {Array} children already-transformed children
+ * @param {Object} style   the container's parsed style object
+ * @returns {VNode} a synthesized <table>, or a no-op clone if there are no real children
+ */
+const flexColumnToTable = (node, children, style) => {
+  const cellChildren = children.filter((child) => !(isVText(child) && child.text.trim() === ''));
+  if (cellChildren.length === 0) return cloneVNodeWithChildren(node, children);
+
+  const rows = cellChildren.map((child) => {
+    const cellStyle = {};
+    const w = absoluteChildWidth(child);
+    if (w) cellStyle.width = w;
+    return createElement('tr', {}, [createElement('td', cellStyle, [child])]);
+  });
+
+  // Cross-axis (horizontal) alignment of the whole table. Default left avoids the
+  // builder's center default (FLAG-7).
+  const align = JUSTIFY_TO_ALIGN[getAlignItems(style)] || 'left';
+
+  // Right/center alignment is only meaningful when the table is content-width — a
+  // page-wide table can't visibly shift (review F-H1). So for right/center use the
+  // first child's absolute width; for left, prefer the container width.
+  const containerWidth = node.properties && node.properties.style && node.properties.style.width;
+  const firstChildWidth = cellChildren.map(absoluteChildWidth).find(Boolean);
+  let tableWidth;
+  if (align === 'right' || align === 'center') {
+    tableWidth = firstChildWidth;
+  } else {
+    tableWidth = isAbsoluteWidth(containerWidth) ? containerWidth : firstChildWidth;
+  }
+  const tableStyle = tableWidth ? { width: tableWidth } : {};
+
+  return createElement('table', tableStyle, rows, { align });
+};
+
 /**
  * Convert a non-flex/non-grid <div> that carries visible background or border into a
  * single-cell table so the decoration survives in the DOCX. The synthesized td goes
@@ -233,6 +282,10 @@ const transformNode = (node) => {
     if (isFlexContainer(style) && getFlexDirection(style) === 'row') {
       return flexRowToTable(node, transformedChildren, style);
     }
+    // T3: flex-direction:column → one-column (N-row) table.
+    if (isFlexContainer(style) && getFlexDirection(style) === 'column') {
+      return flexColumnToTable(node, transformedChildren, style);
+    }
     // T4: grid → multi-column table. Checked before blockDiv so a decorated grid
     // container becomes a grid (not a single wrapper cell).
     if (isGridContainer(style)) {
@@ -242,9 +295,6 @@ const transformNode = (node) => {
     if (hasBlockDecoration(style) && !isFlexContainer(style) && !isGridContainer(style)) {
       return blockDivToTable(transformedChildren, style);
     }
-    // ── T3 extension point ──
-    // if (isFlexContainer(style) && getFlexDirection(style) === 'column')
-    //   return flexColumnToTable(node, transformedChildren, style);   // T3
   }
 
   // No-op: deep-clone with transformed children.

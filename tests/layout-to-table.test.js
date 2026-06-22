@@ -162,10 +162,8 @@ describe('layout-to-table (T1 scaffolding)', () => {
       expect(out.properties.style.width).toBe('710px');
     });
 
-    test('flex-direction column / row-reverse NOT converted (T3 / out-of-scope)', () => {
-      expect(
-        transformLayoutTree(flexRow({ 'flex-direction': 'column' }, [span({}, 'a')])).tagName
-      ).toBe('div');
+    test('flex-direction row-reverse NOT converted by the row branch (out-of-scope)', () => {
+      // column is handled by T3; row-reverse remains out of scope → no-op div here.
       expect(
         transformLayoutTree(flexRow({ 'flex-direction': 'row-reverse' }, [span({}, 'a')])).tagName
       ).toBe('div');
@@ -182,6 +180,79 @@ describe('layout-to-table (T1 scaffolding)', () => {
     test('does not mutate the original flex tree', () => {
       const child = span({ width: '108px' }, 'a');
       const tree = flexRow({}, [child]);
+      transformLayoutTree(tree);
+      expect(tree.tagName).toBe('div');
+      expect(tree.children[0]).toBe(child);
+    });
+  });
+
+  describe('flexColumnToTable (T3) — flex column → table', () => {
+    const span = (style, text) => node('span', { attributes: {}, style: style || {} }, [new VText(text)]);
+    const flexCol = (containerStyle, children) =>
+      node(
+        'div',
+        { attributes: {}, style: { display: 'flex', 'flex-direction': 'column', ...containerStyle } },
+        children
+      );
+
+    test('column with N children → N rows, 1 cell each', () => {
+      const out = transformLayoutTree(flexCol({}, [span({}, 'a'), span({}, 'b'), span({}, 'c')]));
+      expect(out.tagName).toBe('table');
+      expect(out.children.length).toBe(3);
+      expect(out.children.every((tr) => tr.tagName === 'tr' && tr.children.length === 1)).toBe(true);
+    });
+
+    test('align-items maps to table align (cross axis = horizontal)', () => {
+      expect(transformLayoutTree(flexCol({ 'align-items': 'flex-end' }, [span({}, 'a')])).properties.attributes.align).toBe('right');
+      expect(transformLayoutTree(flexCol({ 'align-items': 'center' }, [span({}, 'a')])).properties.attributes.align).toBe('center');
+      expect(transformLayoutTree(flexCol({}, [span({}, 'a')])).properties.attributes.align).toBe('left');
+    });
+
+    test('absolute child width → cell width', () => {
+      const out = transformLayoutTree(flexCol({ 'align-items': 'flex-end' }, [span({ width: '214.281px' }, 'a')]));
+      expect(out.children[0].children[0].properties.style.width).toBe('214.281px');
+    });
+
+    test('F-H1: right-aligned → table width = content (child) width, wide container ignored', () => {
+      const out = transformLayoutTree(
+        flexCol({ 'align-items': 'flex-end', width: '800px' }, [span({ width: '214px' }, 'a')])
+      );
+      expect(out.properties.style.width).toBe('214px'); // not 800px
+    });
+
+    test('F-H1: left-aligned → container width used', () => {
+      const out = transformLayoutTree(flexCol({ width: '800px' }, [span({ width: '214px' }, 'a')]));
+      expect(out.properties.style.width).toBe('800px');
+    });
+
+    test('right-aligned, multiple children → first valid child width drives table width', () => {
+      const out = transformLayoutTree(
+        flexCol({ 'align-items': 'flex-end' }, [span({ width: '120px' }, 'a'), span({ width: '200px' }, 'b')])
+      );
+      expect(out.children.length).toBe(2);
+      expect(out.properties.style.width).toBe('120px'); // first valid child
+    });
+
+    test('blank VText filtered; no valid cells → no-op div', () => {
+      const out = transformLayoutTree(flexCol({}, [new VText('\n '), span({}, 'a')]));
+      expect(out.children.length).toBe(1);
+      expect(transformLayoutTree(flexCol({}, [new VText('  ')])).tagName).toBe('div');
+    });
+
+    test('column-reverse → NOT converted (no-op)', () => {
+      expect(transformLayoutTree(flexCol({ 'flex-direction': 'column-reverse' }, [span({}, 'a')])).tagName).toBe('div');
+    });
+
+    test('td with flex-direction:column → NOT converted (whitelist guard)', () => {
+      const tdCol = transformLayoutTree(
+        node('td', { attributes: {}, style: { display: 'flex', 'flex-direction': 'column' } }, [span({}, 'a')])
+      );
+      expect(tdCol.tagName).toBe('td');
+    });
+
+    test('does not mutate the original column tree', () => {
+      const child = span({}, 'a');
+      const tree = flexCol({ 'align-items': 'flex-end' }, [child]);
       transformLayoutTree(tree);
       expect(tree.tagName).toBe('div');
       expect(tree.children[0]).toBe(child);
