@@ -1,5 +1,5 @@
 {
-  "name": "docx-convert",
+  "name": "@shyang1012/docx-convert",
   "version": "1.0.0",
   "description": "Convert an HTML string into a .docx (Office Open XML) document — pure JavaScript, no headless browser, LibreOffice, or native binaries.",
   "keywords": [
@@ -45,6 +45,9 @@
     "LICENSE",
     "NOTICE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "clean": "rimraf dist",
     "build": "node scripts/build.mjs",

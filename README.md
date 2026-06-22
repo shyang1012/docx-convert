@@ -7,7 +7,7 @@ Convert an HTML string into a `.docx` (Office Open XML) document — pure JavaSc
 ## Install
 
 ```bash
-npm install docx-convert
+npm install @shyang1012/docx-convert
 ```
 
 `sharp` is an optional dependency, used only for SVG→PNG rasterization — install it only if you need SVG support. The browser build stubs it out.
@@ -15,7 +15,7 @@ npm install docx-convert
 ## Usage
 
 ```js
-import HTMLtoDOCX from 'docx-convert';
+import HTMLtoDOCX from '@shyang1012/docx-convert';
 import { writeFileSync } from 'node:fs';
 
 const html = '<h1>Invoice</h1><table><tbody><tr><td>Item</td><td>1,000</td></tr></tbody>'

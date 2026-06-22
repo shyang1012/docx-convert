@@ -97,7 +97,7 @@ bd create --type <type> --title "..."
 2. **배포 결정** — PM 이 배포를 결정하면:
    1. **전체 검증** — `npm run build && npm run test:unit` 통과 + 대표 HTML 변환 산출물 Word 열림 확인(가능 시).
    2. **버전 bump(dev) + PR** — `npm version <patch|minor|major> --no-git-tag-version` 로 dev 에서 버전만 올려 커밋(`main` 직접 push 불가하므로 bump 커밋을 PR 에 실음) → `dev` → `main` PR. 변경 요약·검증 결과 기재.
-   3. **머지 후 배포** — 머지 후 `main` 에서 **태그만** push(`git tag v* && git push origin v*`, 태그는 보호 대상 아님) → `npm publish`(prepublishOnly 가 clean→build→test 자동 실행). publish 는 PM 승인 하 실행.
+   3. **머지 후 배포** — 머지 후 `main` 에서 **태그만** push(`git tag v* && git push origin v*`, 태그는 보호 대상 아님). v 태그 push → `.github/workflows/publish.yml`(**OIDC Trusted Publisher**)이 토큰 없이 `npm publish --provenance` 자동 수행. 배포 승인 = 태그 push 시점(PM 결정). `.npmrc` `ignore-scripts=true` 라 워크플로우가 빌드·테스트를 명시 step 으로 실행.
 
 ## 코드 서명
 
@@ -107,7 +107,7 @@ bd create --type <type> --title "..."
 ## 보안 / 시크릿
 
 - `.npmrc`(공급망 하드닝: min-release-age / ignore-scripts / save-exact 적용)·`.env`·키 파일은 커밋·노출 금지.
-- npm 토큰은 만료형(Granular/Automation) 사용.
+- npm 배포는 **OIDC Trusted Publisher**(GitHub Actions, 토큰리스·provenance) — 평시 npm 토큰 불필요. fallback 수동 publish 시에만 만료형(Granular/Automation) 토큰 사용.
 
 ## 금지 / 확인 (모든 모드)
 
