@@ -122,6 +122,10 @@ function block(b) {
 
     case 'table': {
       if (!b.rows || b.rows.length === 0) return '';
+      // Skip layout-wrapper tables that carry no content (all cells empty) — these come
+      // from flex/grid <div> layouts the forward path synthesized into tables, and render
+      // as `| | |` noise that hurts both human and LLM readability.
+      if (b.rows.every((row) => row.every((cell) => inlines(cell).trim() === ''))) return '';
       const [headerRow, ...bodyRows] = b.rows;
       const colCount = headerRow.length;
 
@@ -149,5 +153,10 @@ function block(b) {
  * @returns {string}
  */
 export function irToMarkdown(blocks) {
-  return blocks.map(block).join('\n\n');
+  // Drop blocks that render empty (skipped empty tables, blank paragraphs) so they don't
+  // leave runs of blank lines — keeps the output tight for humans and LLMs.
+  return blocks
+    .map(block)
+    .filter((s) => s.trim() !== '')
+    .join('\n\n');
 }

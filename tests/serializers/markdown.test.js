@@ -237,4 +237,18 @@ describe('review-fix regression', () => {
   test('null inline node is skipped, not thrown', () => {
     expect(irToMarkdown([{ type: 'paragraph', children: [null, { text: 'x' }] }])).toBe('x');
   });
+
+  test('all-empty (layout-wrapper) table is skipped, no blank-line runs', () => {
+    const md = irToMarkdown([
+      { type: 'paragraph', children: [{ text: 'a' }] },
+      { type: 'table', rows: [[[], []], [[], []]] }, // every cell empty
+      { type: 'paragraph', children: [{ text: 'b' }] },
+    ]);
+    expect(md).toBe('a\n\nb'); // wrapper table gone, single blank line between paragraphs
+  });
+
+  test('a table with any content still renders', () => {
+    const md = irToMarkdown([{ type: 'table', rows: [[[{ text: 'H' }], []]] }]);
+    expect(md).toContain('| H |  |');
+  });
 });
