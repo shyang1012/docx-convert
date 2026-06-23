@@ -547,6 +547,36 @@ const cssBorderParser = (
   return [size, stroke, color];
 };
 
+// Build a per-side paragraph border (<w:pBdr>) override from CSS border
+// declarations on a block element (e.g. a <pre> code block). Accepts the
+// `border` shorthand, per-side `border-<side>` shorthand, and the
+// `border-<side>-width/style/color` longhand. Returns null when no visible
+// border is declared so the default invisible padding border is kept.
+const PARAGRAPH_BORDER_SIDES = ['top', 'right', 'bottom', 'left'];
+const extractParagraphBorder = (style) => {
+  if (!style) return null;
+  const borders = {};
+  let hasVisible = false;
+  PARAGRAPH_BORDER_SIDES.forEach((side) => {
+    const width = style[`border-${side}-width`] || style['border-width'];
+    const lineStyle = style[`border-${side}-style`] || style['border-style'];
+    const color = style[`border-${side}-color`] || style['border-color'];
+    const shorthand = style[`border-${side}`] || style.border;
+    let borderString;
+    if (width || lineStyle || color) {
+      borderString = [width, lineStyle, color].filter(Boolean).join(' ');
+    } else if (shorthand) {
+      borderString = shorthand;
+    }
+    if (!borderString || lineStyle === 'none' || lineStyle === 'hidden') return;
+    const [size, stroke, parsedColor] = cssBorderParser(borderString);
+    if (!size || stroke === 'nil') return; // zero width / no visible line
+    borders[side] = { size, stroke, color: parsedColor, spacing: 3 };
+    hasVisible = true;
+  });
+  return hasVisible ? borders : null;
+};
+
 const modifiedStyleAttributesBuilder = (docxDocumentInstance, vNode, attributes, options) => {
   const modifiedAttributes = { ...attributes };
 
@@ -749,6 +779,10 @@ const modifiedStyleAttributesBuilder = (docxDocumentInstance, vNode, attributes,
       // becomes paragraph-level shading (<w:pPr><w:shd>) — a full code-block
       // box — instead of per-glyph run shading that looks like text highlight.
       if (!modifiedAttributes.display) modifiedAttributes.display = 'block';
+      // Honor an explicit CSS border (color/width) as a visible paragraph
+      // border instead of the default invisible padding border.
+      const preBorder = extractParagraphBorder(vNode.properties && vNode.properties.style);
+      if (preBorder) modifiedAttributes.paragraphBorder = preBorder;
     }
   }
 
@@ -1430,7 +1464,7 @@ const buildHorizontalAlignment = (horizontalAlignment) => {
     .up();
 };
 
-const buildParagraphBorder = () => {
+const buildParagraphBorder = (borderOverrides) => {
   const paragraphBorderFragment = fragment({ namespaceAlias: { w: namespaces.w } }).ele(
     '@w',
     'pBdr'
@@ -1438,10 +1472,16 @@ const buildParagraphBorder = () => {
   const bordersObject = cloneDeep(paragraphBordersObject);
 
   Object.keys(bordersObject).forEach((borderName) => {
-    if (bordersObject[borderName]) {
-      const { size, spacing, color } = bordersObject[borderName];
+    // Per-side override (e.g. a <pre> code block's CSS border) wins over the
+    // default invisible padding border; spacing falls back to the default.
+    const override = borderOverrides && borderOverrides[borderName];
+    const source = override || bordersObject[borderName];
+    if (source) {
+      const { size, color } = source;
+      const spacing = source.spacing != null ? source.spacing : bordersObject[borderName].spacing;
+      const stroke = override && override.stroke ? override.stroke : 'single';
 
-      const borderFragment = buildBorder(borderName, size, spacing, color);
+      const borderFragment = buildBorder(borderName, size, spacing, color, stroke);
       paragraphBorderFragment.import(borderFragment);
     }
   });
@@ -1493,10 +1533,12 @@ const buildParagraphProperties = (attributes, docxDocumentInstance) => {
             const shadingFragment = buildShading(attributes[key]);
             paragraphPropertiesFragment.import(shadingFragment);
             // FIXME: Inner padding in case of shaded paragraphs.
-            const paragraphBorderFragment = buildParagraphBorder();
+            const paragraphBorderFragment = buildParagraphBorder(attributes.paragraphBorder);
             paragraphPropertiesFragment.import(paragraphBorderFragment);
             // eslint-disable-next-line no-param-reassign
             delete attributes.backgroundColor;
+            // eslint-disable-next-line no-param-reassign
+            delete attributes.paragraphBorder;
           }
           break;
         case 'paragraphStyle':
