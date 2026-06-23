@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>코드블록 + 표 inline-style 변환 테스트 (CodeWiz docInlineHtmlRender 산출 구조)</title>
+</head>
+<!--
+  출처: CodeWiz docInlineHtmlRender(2-pass) 산출 inline-style HTML 구조 재현.
+  목적: htmlToHwpx / htmlToDocx 변환기가 코드블록·표의 아래 3속성을 보존하는지 검증.
+    (1) <pre> background-color (코드블록 배경 음영)
+    (2) <pre> white-space: pre  (줄바꿈 보존 — 각 개행을 줄로 유지)
+    (3) 내부 <span> inline color (Prism 구문강조 토큰색, GitHub one-light)
+    (4) <table> th 배경(gray-200) + 셀 테두리(gray-400)
+  색상 = prism-one-light 테마 토큰색을 inline화한 값(키워드 rgb(166,38,164) 보라 등).
+-->
+<body>
+  <div style="background-color: rgb(255, 255, 255); color: rgb(17, 24, 39); padding: 32px; max-width: 800px;">
+
+    <h2 style="font-weight: 600; font-size: 14px; color: rgb(17, 24, 39);">코드 블록 변환 테스트</h2>
+
+    <p style="font-size: 14px; color: rgb(17, 24, 39);">구문 강조가 적용된 코드 블록입니다.</p>
+
+    <pre style="margin-top: 8px; margin-bottom: 8px; overflow-x: auto; border-radius: 6px; border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px; border-top-style: solid; border-right-style: solid; border-bottom-style: solid; border-left-style: solid; border-top-color: rgb(209, 213, 219); border-right-color: rgb(209, 213, 219); border-bottom-color: rgb(209, 213, 219); border-left-color: rgb(209, 213, 219); background-color: rgb(250, 250, 250); color: rgb(56, 58, 66); font-size: 13.5px; padding-top: 15.75px; padding-right: 15.75px; padding-bottom: 15.75px; padding-left: 15.75px; white-space: pre; font-family: 'D2Coding', 'Consolas', monospace;"><code style="background-color: rgb(250, 250, 250); color: rgb(56, 58, 66); font-family: 'D2Coding', 'Consolas', monospace;"><span style="color: rgb(166, 38, 164);">export</span> <span style="color: rgb(166, 38, 164);">interface</span> <span style="color: rgb(183, 107, 1);">User</span> <span style="color: rgb(56, 58, 66);">{</span> id<span style="color: rgb(56, 58, 66);">:</span> <span style="color: rgb(183, 107, 1);">number</span><span style="color: rgb(56, 58, 66);">;</span> name<span style="color: rgb(56, 58, 66);">:</span> <span style="color: rgb(183, 107, 1);">string</span><span style="color: rgb(56, 58, 66);">;</span> <span style="color: rgb(56, 58, 66);">}</span>
+
+<span style="color: rgb(166, 38, 164);">function</span> <span style="color: rgb(81, 138, 245);">greet</span><span style="color: rgb(56, 58, 66);">(</span>user<span style="color: rgb(56, 58, 66);">:</span> <span style="color: rgb(183, 107, 1);">User</span><span style="color: rgb(56, 58, 66);">)</span><span style="color: rgb(56, 58, 66);">:</span> <span style="color: rgb(183, 107, 1);">string</span> <span style="color: rgb(56, 58, 66);">{</span>
+  <span style="color: rgb(166, 38, 164);">const</span> prefix <span style="color: rgb(81, 138, 245);">=</span> <span style="color: rgb(80, 161, 79);">"Hello"</span><span style="color: rgb(56, 58, 66);">;</span> <span style="color: rgb(160, 161, 167);">// 인사말</span>
+  <span style="color: rgb(166, 38, 164);">return</span> <span style="color: rgb(80, 161, 79);">`</span><span style="color: rgb(56, 58, 66);">${</span>prefix<span style="color: rgb(56, 58, 66);">}</span><span style="color: rgb(80, 161, 79);">, </span><span style="color: rgb(56, 58, 66);">${</span>user<span style="color: rgb(56, 58, 66);">.</span>name<span style="color: rgb(56, 58, 66);">}</span><span style="color: rgb(80, 161, 79);">!`</span><span style="color: rgb(56, 58, 66);">;</span>
+<span style="color: rgb(56, 58, 66);">}</span></code></pre>
+
+    <table style="width: 100%; border-collapse: collapse; border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px; border-top-style: solid; border-right-style: solid; border-bottom-style: solid; border-left-style: solid; border-top-color: rgb(156, 163, 175); border-right-color: rgb(156, 163, 175); border-bottom-color: rgb(156, 163, 175); border-left-color: rgb(156, 163, 175);">
+      <thead>
+        <tr>
+          <th style="border-top: 1px solid rgb(156, 163, 175); border-right: 1px solid rgb(156, 163, 175); border-bottom: 1px solid rgb(156, 163, 175); border-left: 1px solid rgb(156, 163, 175); padding-top: 4px; padding-right: 8px; padding-bottom: 4px; padding-left: 8px; background-color: rgb(229, 231, 235); color: rgb(17, 24, 39);">언어</th>
+          <th style="border-top: 1px solid rgb(156, 163, 175); border-right: 1px solid rgb(156, 163, 175); border-bottom: 1px solid rgb(156, 163, 175); border-left: 1px solid rgb(156, 163, 175); padding-top: 4px; padding-right: 8px; padding-bottom: 4px; padding-left: 8px; background-color: rgb(229, 231, 235); color: rgb(17, 24, 39);">회화</th>
+          <th style="border-top: 1px solid rgb(156, 163, 175); border-right: 1px solid rgb(156, 163, 175); border-bottom: 1px solid rgb(156, 163, 175); border-left: 1px solid rgb(156, 163, 175); padding-top: 4px; padding-right: 8px; padding-bottom: 4px; padding-left: 8px; background-color: rgb(229, 231, 235); color: rgb(17, 24, 39);">자격</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="border-top: 1px solid rgb(156, 163, 175); border-right: 1px solid rgb(156, 163, 175); border-bottom: 1px solid rgb(156, 163, 175); border-left: 1px solid rgb(156, 163, 175); padding-top: 4px; padding-right: 8px; padding-bottom: 4px; padding-left: 8px;">일본어</td>
+          <td style="border-top: 1px solid rgb(156, 163, 175); border-right: 1px solid rgb(156, 163, 175); border-bottom: 1px solid rgb(156, 163, 175); border-left: 1px solid rgb(156, 163, 175); padding-top: 4px; padding-right: 8px; padding-bottom: 4px; padding-left: 8px;">가능</td>
+          <td style="border-top: 1px solid rgb(156, 163, 175); border-right: 1px solid rgb(156, 163, 175); border-bottom: 1px solid rgb(156, 163, 175); border-left: 1px solid rgb(156, 163, 175); padding-top: 4px; padding-right: 8px; padding-bottom: 4px; padding-left: 8px;">2급</td>
+        </tr>
+        <tr>
+          <td style="border-top: 1px solid rgb(156, 163, 175); border-right: 1px solid rgb(156, 163, 175); border-bottom: 1px solid rgb(156, 163, 175); border-left: 1px solid rgb(156, 163, 175); padding-top: 4px; padding-right: 8px; padding-bottom: 4px; padding-left: 8px;">영어</td>
+          <td style="border-top: 1px solid rgb(156, 163, 175); border-right: 1px solid rgb(156, 163, 175); border-bottom: 1px solid rgb(156, 163, 175); border-left: 1px solid rgb(156, 163, 175); padding-top: 4px; padding-right: 8px; padding-bottom: 4px; padding-left: 8px;">가능</td>
+          <td style="border-top: 1px solid rgb(156, 163, 175); border-right: 1px solid rgb(156, 163, 175); border-bottom: 1px solid rgb(156, 163, 175); border-left: 1px solid rgb(156, 163, 175); padding-top: 4px; padding-right: 8px; padding-bottom: 4px; padding-left: 8px;">-</td>
+        </tr>
+      </tbody>
+    </table>
+
+  </div>
+</body>
+</html>
