@@ -745,6 +745,10 @@ const modifiedStyleAttributesBuilder = (docxDocumentInstance, vNode, attributes,
       modifiedAttributes.highlightColor = 'lightGray';
     } else if (isVNode(vNode) && vNode.tagName === 'pre') {
       modifiedAttributes.font = 'Courier';
+      // <pre> is block-level by default. Mark it block so a background-color
+      // becomes paragraph-level shading (<w:pPr><w:shd>) — a full code-block
+      // box — instead of per-glyph run shading that looks like text highlight.
+      if (!modifiedAttributes.display) modifiedAttributes.display = 'block';
     }
   }
 
