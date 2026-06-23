@@ -6,7 +6,7 @@ import { cloneDeep } from 'lodash';
 
 import createHTMLToVDOM from './html-parser';
 import { transformLayoutTree } from './layout-to-table';
-import { VNode, isVNode, isVText } from '../vdom/index';
+import { VNode, VText, isVNode, isVText } from '../vdom/index';
 import * as xmlBuilder from './xml-builder';
 import namespaces from '../namespaces';
 import { defaultDocumentOptions } from '../constants';
@@ -17,6 +17,30 @@ import { buildSVGElement } from '../utils/svg';
 const LRUCache = lruCache.default || lruCache.LRUCache || lruCache; // Support both ESM and CommonJS imports
 
 const convertHTML = createHTMLToVDOM();
+
+// Convert literal newlines inside a <pre> subtree into <br> nodes.
+// OOXML ignores a literal "\n" inside <w:t>, so a multi-line <pre>/<pre><code>
+// block would otherwise collapse onto a single line. Each newline becomes a
+// run-level <w:br/> via the existing <br> handling in xml-builder. Indentation
+// (leading spaces after a newline) stays in the following text segment, so
+// preformatted layout is preserved. Gated to <pre> only — ordinary inline
+// whitespace must keep collapsing.
+const preservePreLineBreaks = (vNode) => {
+  if (!vNode || !vNode.children || !vNode.children.length) return;
+  const newChildren = [];
+  vNode.children.forEach((child) => {
+    if (isVText(child) && child.text.includes('\n')) {
+      child.text.split('\n').forEach((segment, idx) => {
+        if (idx > 0) newChildren.push(new VNode('br', { attributes: {}, style: {} }, []));
+        newChildren.push(new VText(segment));
+      });
+    } else {
+      if (isVNode(child)) preservePreLineBreaks(child);
+      newChildren.push(child);
+    }
+  });
+  vNode.children = newChildren;
+};
 
 // Helper function to add lineRule attribute for image consistency
 const addLineRuleToImageFragment = (imageFragment) => {
@@ -474,6 +498,9 @@ async function findXMLEquivalent(docxDocumentInstance, vNode, xmlFragment, image
     case 'blockquote':
     case 'code':
     case 'pre':
+      if (isVNode(vNode) && vNode.tagName === 'pre') {
+        preservePreLineBreaks(vNode);
+      }
       const paragraphFragment = await xmlBuilder.buildParagraph(vNode, {}, docxDocumentInstance);
       xmlFragment.import(paragraphFragment);
       return;

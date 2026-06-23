@@ -70,6 +70,17 @@ Common `documentOptions` keys (all optional):
 
 User-facing dimensions accept `px` / `cm` / `in` / `pt` strings and are normalized internally.
 
+### docx → markdown
+
+```js
+import { docxToMarkdown } from '@shyang1012/docx-convert';
+import { readFileSync } from 'node:fs';
+
+const md = await docxToMarkdown(readFileSync('input.docx'));
+```
+
+Accepts a `Buffer` / `ArrayBuffer` / `Uint8Array` / `Blob`. Converts headings, paragraphs, inline styles (bold/italic/strike/code), links, lists, and tables; images become `![alt]()` placeholders. `extractMarkdown` is an alias.
+
 ## Build / test
 
 ```bash

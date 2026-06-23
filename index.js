@@ -4,6 +4,11 @@ import { minify } from 'html-minifier-terser';
 
 import createDocumentOptionsAndMergeWithDefaults from './src/utils/options-utils';
 import addFilesToContainer from './src/html-to-docx';
+import { readDocxParts } from './src/reader/docx-reader';
+import { parseOoxml } from './src/reader/ooxml-parse';
+import { buildIr } from './src/reader/build-ir';
+import { irToMarkdown } from './src/serializers/markdown';
+import { parseRels, parseNumbering } from './src/reader/parse-aux';
 
 const minifyHTMLString = async (htmlString) => {
   try {
@@ -61,4 +66,17 @@ async function generateContainer(
   );
 }
 
+async function docxToMarkdown(input) {
+  const parts = await readDocxParts(input);
+  const ctx = {
+    rels: parts.relsXml ? parseRels(parts.relsXml) : {},
+    numbering: parts.numberingXml ? parseNumbering(parts.numberingXml) : {},
+  };
+  return irToMarkdown(buildIr(parseOoxml(parts.documentXml), ctx));
+}
+
+// hwp-convert 자매 정합 별칭
+const extractMarkdown = docxToMarkdown;
+
 export default generateContainer;
+export { docxToMarkdown, extractMarkdown };
