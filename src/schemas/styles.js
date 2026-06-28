@@ -69,8 +69,16 @@ const generateStylesXML = (
   fontSize = defaultFontSize,
   complexScriptFontSize = defaultFontSize,
   lang = defaultLang,
-  headingConfig = defaultHeadingOptions
+  headingConfig = defaultHeadingOptions,
+  spacing = {}
 ) => {
+  // Document-wide defaults (Word 365 Normal): line spacing 1.08 (w:line 259,
+  // auto), paragraph after 8pt (160). letterSpacing 0 → no rPr character spacing.
+  const lineSpacing = spacing.line ?? 259;
+  const lineRule = spacing.lineRule ?? 'auto';
+  const afterSpacing = spacing.after ?? 160;
+  const letterSpacing = spacing.letter ?? 0;
+  const letterSpacingXml = letterSpacing ? `<w:spacing w:val="${letterSpacing}" />` : '';
   const config = Object.fromEntries(
     Object.entries(defaultHeadingOptions).map(([key, defaultValue]) => [
       key,
@@ -86,6 +94,7 @@ const generateStylesXML = (
 	  <w:rPrDefault>
 		<w:rPr>
 		  <w:rFonts w:ascii="${font}" w:eastAsiaTheme="minorHAnsi" w:hAnsiTheme="minorHAnsi" w:cstheme="minorBidi" />
+		  ${letterSpacingXml}
 		  <w:sz w:val="${fontSize}" />
 		  <w:szCs w:val="${complexScriptFontSize}" />
 		  <w:lang w:val="${lang}" w:eastAsia="${lang}" w:bidi="ar-SA" />
@@ -93,7 +102,7 @@ const generateStylesXML = (
 	  </w:rPrDefault>
 	  <w:pPrDefault>
 		<w:pPr>
-		  <w:spacing w:after="120" w:line="240" w:lineRule="atLeast" />
+		  <w:spacing w:after="${afterSpacing}" w:line="${lineSpacing}" w:lineRule="${lineRule}" />
 		</w:pPr>
 	  </w:pPrDefault>
 	</w:docDefaults>

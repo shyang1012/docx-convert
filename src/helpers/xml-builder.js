@@ -36,6 +36,7 @@ import {
   pointToEIP,
   cmToTWIP,
   cmRegex,
+  mmToTWIP,
   inchRegex,
   inchToTWIP,
   cmToHIP,
@@ -47,6 +48,7 @@ import { buildList } from './render-document-file';
 import {
   defaultDocumentOptions,
   defaultFont,
+  defaultFontSize,
   hyperlinkType,
   paragraphBordersObject,
   colorlessColors,
@@ -206,6 +208,13 @@ const buildFontSize = (fontSize) =>
     .att('@w', 'val', fontSize)
     .up();
 
+// Character spacing (letter-spacing) → <w:spacing w:val="TWIP"> in rPr.
+const buildCharacterSpacing = (letterSpacing) =>
+  fragment({ namespaceAlias: { w: namespaces.w } })
+    .ele('@w', 'spacing')
+    .att('@w', 'val', String(letterSpacing))
+    .up();
+
 const buildShading = (colorCode) =>
   fragment({ namespaceAlias: { w: namespaces.w } })
     .ele('@w', 'shd')
@@ -360,6 +369,37 @@ const fixupLineHeight = (lineHeight, fontSize) => {
   } else {
     // 240 TWIP or 12 point is default line height
     return 240;
+  }
+};
+
+// CSS letter-spacing → TWIP for the OOXML run property <w:spacing w:val>
+// (character spacing, measured in twentieths of a point = TWIP). Negatives are
+// allowed (tighter tracking). 'normal'/0/empty → 0. Unitless numbers are taken
+// as already-TWIP (convenience for the global letterSpacing option). `em` is
+// resolved against the run/document font size (in HIP).
+const fixupLetterSpacing = (letterSpacing, fontSize = defaultFontSize) => {
+  if (letterSpacing === undefined || letterSpacing === null) return 0;
+  const value = `${letterSpacing}`.trim();
+  if (value === '' || value.toLowerCase() === 'normal') return 0;
+  const matched = /^(-?[\d.]+)(px|pt|cm|mm|in|em)?$/i.exec(value);
+  if (!matched) return 0;
+  const amount = parseFloat(matched[1]);
+  switch ((matched[2] || '').toLowerCase()) {
+    case 'px':
+      return pixelToTWIP(amount);
+    case 'pt':
+      return pointToTWIP(amount);
+    case 'cm':
+      return cmToTWIP(amount);
+    case 'mm':
+      return mmToTWIP(amount);
+    case 'in':
+      return inchToTWIP(amount);
+    case 'em':
+      return HIPToTWIP(amount * (fontSize || defaultFontSize));
+    default:
+      // unitless → already TWIP
+      return Math.round(amount);
   }
 };
 
@@ -623,6 +663,13 @@ const modifiedStyleAttributesBuilder = (docxDocumentInstance, vNode, attributes,
             ? fixupFontSize(vNodeStyle['font-size'], docxDocumentInstance)
             : null
         );
+      } else if (vNodeStyleKey === 'letter-spacing') {
+        modifiedAttributes.letterSpacing = fixupLetterSpacing(
+          vNodeStyleValue,
+          vNodeStyle['font-size']
+            ? fixupFontSize(vNodeStyle['font-size'], docxDocumentInstance)
+            : docxDocumentInstance.fontSize
+        );
       } else if (vNodeStyleKey === 'margin') {
         const marginParts = vNodeStyleValue.split(' ');
         const margins = {
@@ -824,6 +871,10 @@ const buildFormatting = (htmlTag, options) => {
       return buildColor(options && options.color ? options.color : 'black');
     case 'backgroundColor':
       return buildShading(options && options.color ? options.color : 'black');
+    case 'letterSpacing':
+      return buildCharacterSpacing(
+        options && options.letterSpacing != null ? options.letterSpacing : 0
+      );
     case 'fontSize':
       // does this need a unit of measure?
       return buildFontSize(options && options.fontSize ? options.fontSize : 10);
@@ -856,6 +907,7 @@ const RPR_ATTRIBUTE_ORDER = [
   's', //                  → <w:strike>    (slot 9)
   'textShadow', //         → <w:shadow>    (slot 12)
   'color', //              → <w:color>     (slot 19)
+  'letterSpacing', //      → <w:spacing>   (slot 20)
   'fontSize', //           → <w:sz>        (slot 24)
   'mark', //               → <w:highlight> (slot 26)
   'code', //               → <w:highlight> (slot 26)
@@ -965,7 +1017,7 @@ const buildRunProperties = (attributes) => {
         options.color = attributes[key];
       }
 
-      if (key === 'fontSize' || key === 'font') {
+      if (key === 'fontSize' || key === 'font' || key === 'letterSpacing') {
         options[key] = attributes[key];
       }
 
@@ -4507,4 +4559,5 @@ export {
   processImageSource,
   buildDrawing,
   fixupLineHeight,
+  fixupLetterSpacing,
 };
