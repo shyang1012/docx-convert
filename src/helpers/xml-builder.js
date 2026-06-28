@@ -3496,7 +3496,11 @@ const buildTableRow = async (
     const tableColumns = vNode.children.filter((childVNode) =>
       ['td', 'th'].includes(childVNode.tagName)
     );
-    const maximumColumnWidth = docxDocumentInstance.availableDocumentSpace / tableColumns.length;
+    // Size cells from the table's declared width when given, else the full page;
+    // this keeps w:tcW consistent with w:tblW and the column grid.
+    const maximumColumnWidth =
+      (modifiedAttributes.width || docxDocumentInstance.availableDocumentSpace) /
+      tableColumns.length;
 
     // eslint-disable-next-line no-restricted-syntax
     for (const column of tableColumns) {
@@ -3565,7 +3569,7 @@ const buildTableGrid = (vNode, attributes) => {
   const tableGridFragment = fragment({ namespaceAlias: { w: namespaces.w } }).ele('@w', 'tblGrid');
   if (vNodeHasChildren(vNode)) {
     const gridColumns = vNode.children.filter((childVNode) => childVNode.tagName === 'col');
-    const gridWidth = attributes.maximumWidth / gridColumns.length;
+    const gridWidth = Math.round(attributes.maximumWidth / gridColumns.length);
 
     for (let index = 0; index < gridColumns.length; index++) {
       const tableGridColFragment = buildTableGridCol(gridWidth);
@@ -3587,7 +3591,7 @@ const buildTableGridFromTableRow = (vNode, attributes) => {
 
       return accumulator + (colSpan ? parseInt(colSpan) : 1);
     }, 0);
-    const gridWidth = attributes.maximumWidth / numberOfGridColumns;
+    const gridWidth = Math.round(attributes.maximumWidth / numberOfGridColumns);
 
     for (let index = 0; index < numberOfGridColumns; index++) {
       const tableGridColFragment = buildTableGridCol(gridWidth);
@@ -3981,6 +3985,11 @@ const buildTable = async (vNode, attributes, docxDocumentInstance) => {
     }
     if (modifiedAttributes.width) {
       modifiedAttributes.width = Math.min(modifiedAttributes.width, attributes.maximumWidth);
+      // Keep the column grid (which sizes from maximumWidth) consistent with the
+      // declared table width. Without this, an explicit width smaller than the
+      // available page width leaves tblW < grid, so Word renders the table
+      // narrower than its grid claims (e.g. landscape layouts with px widths).
+      modifiedAttributes.maximumWidth = modifiedAttributes.width;
     }
 
     if (tableStyles.height) {
