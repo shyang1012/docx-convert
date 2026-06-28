@@ -63,4 +63,17 @@ describe('<pre> block border', () => {
     const ppr = paragraphPrContaining(xml, 'sh');
     expect(ppr).toMatch(new RegExp(`<w:top\\b[^>]*w:color="${GRAY}"`, 'i'));
   });
+
+  test('border renders even without a background-color', async () => {
+    const xml = await documentXml(
+      '<pre style="border: 1px solid rgb(209, 213, 219);">nobg</pre>'
+    );
+    const ppr = paragraphPrContaining(xml, 'nobg');
+    // visible border present...
+    expect(ppr).toMatch(new RegExp(`<w:top\\b[^>]*w:color="${GRAY}"`, 'i'));
+    // ...and exactly one <w:pBdr> (no double emission)
+    expect((ppr.match(/<w:pBdr\b/g) || []).length).toBe(1);
+    // no shading since there is no background
+    expect(ppr).not.toMatch(/<w:shd\b/);
+  });
 });

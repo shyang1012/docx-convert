@@ -60,7 +60,38 @@ declare namespace HTMLtoDOCX {
         heading6?: HeadingStyle;
     }
 
+    type PaperSizeName =
+        | "A4" | "A3" | "A5" | "B4" | "B5" | "Letter" | "Legal"
+        | "A4 Small" | "Letter Small" | "Note" | "Tabloid" | "11x17"
+        | "Statement" | "Executive" | "Folio" | "Quarto" | "10x14";
+
+    /**
+     * Nested page setup (hwp-convert 자매 정합). When present it takes precedence
+     * over the legacy flat `orientation`/`pageSize`/`margins`.
+     * NOTE: `page.margins` are in **mm** (unlike the legacy `margins`, which are TWIP).
+     * Resolution precedence per field: page > legacy flat > @page CSS > container CSS > A4 default.
+     */
+    interface PageOption {
+        /** Paper name (case-insensitive) or custom dimensions. */
+        size?: PaperSizeName | { width: number; height: number; unit?: "mm" | "twip" };
+        /** "auto" (default) decides landscape from container body width vs paper. */
+        orientation?: "auto" | "portrait" | "landscape";
+        /** Per-side page margins in **mm**. */
+        margins?: {
+            left?: number;
+            right?: number;
+            top?: number;
+            bottom?: number;
+            header?: number;
+            footer?: number;
+            gutter?: number;
+        };
+        /** Container CSS heuristic (root max-width/padding) is ON by default; set false to opt out. */
+        autoDetectContainer?: boolean;
+    }
+
     interface DocumentOptions {
+        page?: PageOption;
         orientation?: "portrait" | "landscape";
         pageSize?: PageSize;
         margins?: Margins;

@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import { minify } from 'html-minifier-terser';
 
 import createDocumentOptionsAndMergeWithDefaults from './src/utils/options-utils';
+import derivePageSetup from './src/utils/page-setup';
 import addFilesToContainer from './src/html-to-docx';
 import { readDocxParts } from './src/reader/docx-reader';
 import { parseOoxml } from './src/reader/ooxml-parse';
@@ -36,16 +37,35 @@ async function generateContainer(
 
   const normalizedDocumentOptions = createDocumentOptionsAndMergeWithDefaults(documentOptions);
 
+  // Page setup: nested `page` option + @page CSS + container heuristic, resolved
+  // from the RAW html (before minify) and injected AFTER the merge so already-TWIP
+  // values bypass normalizeUnits (preserves explicit 0). null → legacy path intact.
+  if (htmlString) {
+    const pageOverride = derivePageSetup(htmlString, documentOptions, normalizedDocumentOptions);
+    if (pageOverride) {
+      normalizedDocumentOptions.orientation = pageOverride.orientation;
+      if (pageOverride.pageSize) {
+        normalizedDocumentOptions.pageSize = pageOverride.pageSize;
+      }
+      if (pageOverride.margins) {
+        normalizedDocumentOptions.margins = {
+          ...normalizedDocumentOptions.margins,
+          ...pageOverride.margins,
+        };
+      }
+    }
+  }
+
   let contentHTML = htmlString;
   let headerHTML = headerHTMLString;
   let footerHTML = footerHTMLString;
-  if (htmlString && !normalizedDocumentOptions['preprocessing']['skipHTMLMinify']) {
+  if (htmlString && !normalizedDocumentOptions.preprocessing.skipHTMLMinify) {
     contentHTML = await minifyHTMLString(contentHTML);
   }
-  if (headerHTMLString && !normalizedDocumentOptions['preprocessing']['skipHTMLMinify']) {
+  if (headerHTMLString && !normalizedDocumentOptions.preprocessing.skipHTMLMinify) {
     headerHTML = await minifyHTMLString(headerHTML);
   }
-  if (footerHTMLString && !normalizedDocumentOptions['preprocessing']['skipHTMLMinify']) {
+  if (footerHTMLString && !normalizedDocumentOptions.preprocessing.skipHTMLMinify) {
     footerHTML = await minifyHTMLString(footerHTML);
   }
 

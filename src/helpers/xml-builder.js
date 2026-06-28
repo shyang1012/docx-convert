@@ -1541,6 +1541,17 @@ const buildParagraphProperties = (attributes, docxDocumentInstance) => {
             delete attributes.paragraphBorder;
           }
           break;
+        case 'paragraphBorder':
+          // Standalone border when there is no background-color. The shaded-block
+          // path above already consumes paragraphBorder, so this only fires for a
+          // bordered block with no fill — e.g. a <pre> with a border but no bg.
+          if (attributes.paragraphBorder) {
+            const standaloneBorderFragment = buildParagraphBorder(attributes.paragraphBorder);
+            paragraphPropertiesFragment.import(standaloneBorderFragment);
+            // eslint-disable-next-line no-param-reassign
+            delete attributes.paragraphBorder;
+          }
+          break;
         case 'paragraphStyle':
           const pStyleFragment = buildPStyle(attributes.paragraphStyle);
           paragraphPropertiesFragment.import(pStyleFragment);
