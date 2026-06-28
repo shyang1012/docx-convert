@@ -24,8 +24,8 @@ import {
   landscapeMargins,
   portraitMargins,
   defaultOrientation,
-  landscapeWidth,
-  landscapeHeight,
+  a4Width,
+  a4Height,
   applicationName,
   defaultFont,
   defaultFontSize,
@@ -145,8 +145,8 @@ class DocxDocument {
     this.deterministicIds = properties.deterministicIds || false;
 
     const isPortraitOrientation = this.orientation === defaultOrientation;
-    const height = this.pageSize.height ? this.pageSize.height : landscapeHeight;
-    const width = this.pageSize.width ? this.pageSize.width : landscapeWidth;
+    const height = this.pageSize.height ? this.pageSize.height : a4Height;
+    const width = this.pageSize.width ? this.pageSize.width : a4Width;
 
     this.width = isPortraitOrientation ? width : height;
     this.height = isPortraitOrientation ? height : width;

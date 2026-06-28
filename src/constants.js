@@ -4,6 +4,10 @@ const applicationName = 'Powered by TurboDocx html-to-docx';
 const defaultOrientation = 'portrait';
 const landscapeWidth = 15840;
 const landscapeHeight = 12240;
+// Default paper = A4 portrait (physical short × long), round(mm*1440/25.4).
+// Word's default paper in ko-KR is A4; this is the single source of the default size.
+const a4Width = 11906; // 210mm
+const a4Height = 16838; // 297mm
 const landscapeMargins = {
   top: 1800,
   right: 1440,
@@ -133,8 +137,8 @@ const defaultDocumentOptions = {
     addSpacingAfter: true,
   },
   pageSize: {
-    width: landscapeHeight,
-    height: landscapeWidth,
+    width: a4Width,
+    height: a4Height,
   },
   pageNumber: false,
   skipFirstHeaderFooter: false,
@@ -231,6 +235,8 @@ export {
   defaultOrientation,
   landscapeWidth,
   landscapeHeight,
+  a4Width,
+  a4Height,
   applicationName,
   defaultFont,
   defaultFontSize,

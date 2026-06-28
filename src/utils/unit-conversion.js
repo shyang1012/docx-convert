@@ -2,6 +2,7 @@ export const pixelRegex = /([\d.]+)px/i;
 export const percentageRegex = /([\d.]+)%/i;
 export const pointRegex = /([\d.]+)pt/i;
 export const cmRegex = /([\d.]+)cm/i;
+export const mmRegex = /([\d.]+)mm/i;
 export const inchRegex = /([\d.]+)in/i;
 
 export const pixelToEMU = (pixelValue) => Math.round(pixelValue * 9525);
@@ -39,6 +40,11 @@ export const inchToTWIP = (inchValue) => pointToTWIP(inchToPoint(inchValue));
 export const cmToInch = (cmValue) => cmValue * 0.3937008;
 
 export const cmToTWIP = (cmValue) => inchToTWIP(cmToInch(cmValue));
+
+// Direct, precision-correct mm → TWIP (1in = 25.4mm = 1440 twip).
+// Use this for paper-size and @page geometry — NOT cmToTWIP(mm/10), whose
+// intermediate Math.round (inchToPoint) drifts A4 210mm to 11900 instead of 11906.
+export const mmToTWIP = (mmValue) => Math.round((Number(mmValue) * 1440) / 25.4);
 
 export const pixelToPoint = (pixelValue) => HIPToPoint(pixelToHIP(pixelValue));
 

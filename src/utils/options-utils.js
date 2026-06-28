@@ -4,6 +4,8 @@ import {
   pixelToTWIP,
   cmRegex,
   cmToTWIP,
+  mmRegex,
+  mmToTWIP,
   inchRegex,
   inchToTWIP,
   pointRegex,
@@ -30,20 +32,22 @@ const normalizeUnits = (dimensioningObject, defaultDimensionsProperty) => {
   let normalizedUnitResult = {};
   if (typeof dimensioningObject === 'object' && dimensioningObject !== null) {
     Object.keys(dimensioningObject).forEach((key) => {
-      if (pixelRegex.test(dimensioningObject[key])) {
-        const matchedParts = dimensioningObject[key].match(pixelRegex);
-        normalizedUnitResult[key] = pixelToTWIP(matchedParts[1]);
-      } else if (cmRegex.test(dimensioningObject[key])) {
-        const matchedParts = dimensioningObject[key].match(cmRegex);
-        normalizedUnitResult[key] = cmToTWIP(matchedParts[1]);
-      } else if (inchRegex.test(dimensioningObject[key])) {
-        const matchedParts = dimensioningObject[key].match(inchRegex);
-        normalizedUnitResult[key] = inchToTWIP(matchedParts[1]);
-      } else if (dimensioningObject[key]) {
-        normalizedUnitResult[key] = dimensioningObject[key];
-      } else {
-        // incase value is something like 0
+      const value = dimensioningObject[key];
+      if (pixelRegex.test(value)) {
+        normalizedUnitResult[key] = pixelToTWIP(`${value}`.match(pixelRegex)[1]);
+      } else if (cmRegex.test(value)) {
+        normalizedUnitResult[key] = cmToTWIP(`${value}`.match(cmRegex)[1]);
+      } else if (mmRegex.test(value)) {
+        normalizedUnitResult[key] = mmToTWIP(`${value}`.match(mmRegex)[1]);
+      } else if (inchRegex.test(value)) {
+        normalizedUnitResult[key] = inchToTWIP(`${value}`.match(inchRegex)[1]);
+      } else if (value === undefined || value === null || value === '') {
+        // Truly missing → fall back to the matching default.
         normalizedUnitResult[key] = defaultDimensionsProperty[key];
+      } else {
+        // Explicit value (incl. 0 / '0' / unitless number) → keep as-is.
+        // F-01: preserve explicit zero margins instead of replacing them with defaults.
+        normalizedUnitResult[key] = value;
       }
     });
   } else {
