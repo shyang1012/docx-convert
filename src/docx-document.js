@@ -16,6 +16,8 @@ import {
   generateDocumentTemplate,
 } from './schemas';
 import { convertVTreeToXML } from './helpers';
+import { fixupLetterSpacing } from './helpers/xml-builder';
+import { pointToTWIP, pixelToTWIP, cmToTWIP, mmToTWIP, inchToTWIP } from './utils/unit-conversion';
 import namespaces from './namespaces';
 import {
   footerType as footerFileType,
@@ -136,6 +138,28 @@ async function generateSectionXML(vTree, type = 'header') {
   return { [`${type}Id`]: this[`last${referenceName}Id`], [`${type}XML`]: sectionXML };
 }
 
+// Document-wide default line spacing → { line, lineRule } for styles.xml pPrDefault.
+// Unitless numbers are line multiples (240ths, lineRule="auto"); a value with an
+// absolute unit (pt/px/cm/mm/in) is an exact minimum height (lineRule="atLeast").
+const resolveLineSpacing = (lineHeight) => {
+  if (lineHeight === undefined || lineHeight === null || lineHeight === '') {
+    return { line: 259, lineRule: 'auto' }; // 1.08 (Word 365 Normal)
+  }
+  const value = `${lineHeight}`.trim();
+  if (/^-?[\d.]+$/.test(value)) {
+    return { line: Math.round(240 * parseFloat(value)), lineRule: 'auto' };
+  }
+  const matched = /^(-?[\d.]+)(px|pt|cm|mm|in)$/i.exec(value);
+  if (matched) {
+    const amount = parseFloat(matched[1]);
+    const toTwip = { px: pixelToTWIP, pt: pointToTWIP, cm: cmToTWIP, mm: mmToTWIP, in: inchToTWIP }[
+      matched[2].toLowerCase()
+    ];
+    return { line: toTwip(amount), lineRule: 'atLeast' };
+  }
+  return { line: 259, lineRule: 'auto' };
+};
+
 class DocxDocument {
   constructor(properties) {
     this.zip = properties.zip;
@@ -181,6 +205,19 @@ class DocxDocument {
     this.font = properties.font || defaultFont;
     this.fontSize = properties.fontSize || defaultFontSize;
     this.complexScriptFontSize = properties.complexScriptFontSize || defaultFontSize;
+    // Document-wide line spacing (default 1.08 = Word 365 Normal) + character
+    // spacing (default 0). Both overridable via documentOptions and resolved to
+    // styles.xml docDefaults.
+    this.lineSpacing = resolveLineSpacing(
+      properties.lineHeight !== undefined
+        ? properties.lineHeight
+        : defaultDocumentOptions.lineHeight
+    );
+    this.letterSpacing = fixupLetterSpacing(properties.letterSpacing, this.fontSize);
+    this.paragraphSpacingAfter =
+      properties.paragraphSpacingAfter !== undefined
+        ? properties.paragraphSpacingAfter
+        : defaultDocumentOptions.paragraphSpacingAfter;
     this.lang = properties.lang || defaultLang;
     this.direction = properties.direction || 'ltr';
     this.tableRowCantSplit =
@@ -307,7 +344,13 @@ class DocxDocument {
         this.fontSize,
         this.complexScriptFontSize,
         this.lang,
-        this.heading
+        this.heading,
+        {
+          line: this.lineSpacing.line,
+          lineRule: this.lineSpacing.lineRule,
+          after: this.paragraphSpacingAfter,
+          letter: this.letterSpacing,
+        }
       ),
       this.direction
     );

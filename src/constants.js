@@ -129,6 +129,11 @@ const defaultDocumentOptions = {
   font: defaultFont,
   fontSize: defaultFontSize,
   complexScriptFontSize: defaultFontSize,
+  // Document-wide spacing defaults — Word 365 Normal: line 1.08×, paragraph
+  // after 8pt (160 TWIP). letterSpacing 0 → no character spacing in rPr default.
+  lineHeight: 1.08,
+  letterSpacing: 0,
+  paragraphSpacingAfter: 160,
   table: {
     row: {
       cantSplit: false,

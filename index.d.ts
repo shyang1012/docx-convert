@@ -111,6 +111,13 @@ declare namespace HTMLtoDOCX {
         font?: string;
         fontSize?: number;
         complexScriptFontSize?: number;
+        /** Document-wide line spacing. Unitless number = line multiple (e.g. 1.08, 1.5);
+         *  string with absolute unit (e.g. "24pt") = exact minimum height. Default 1.08 (Word 365 Normal). */
+        lineHeight?: number | string;
+        /** Document-wide character spacing (자간). Number = TWIP; string with unit (e.g. "0.5pt", "1px") is converted. Negatives allowed. Default 0. */
+        letterSpacing?: number | string;
+        /** Document-wide paragraph spacing-after in TWIP. Default 160 (8pt). */
+        paragraphSpacingAfter?: number;
         table?: Table;
         pageNumber?: boolean;
         skipFirstHeaderFooter?: boolean;
