@@ -125,5 +125,8 @@
       "prettier --write",
       "eslint --fix"
     ]
-  }
+  },
+  "contributors": [
+    "shyang1012 <disroway@gmail.com>"
+  ]
 }
