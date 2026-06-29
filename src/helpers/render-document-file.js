@@ -397,6 +397,41 @@ export const buildList = async (vNode, docxDocumentInstance, xmlFragment) => {
   return listElements;
 };
 
+// CSS-inheritable text styles. A container element (e.g. a <div> wrapper) does
+// not itself become a paragraph — its children do — so these must be cascaded
+// onto child VNodes, mirroring the root-level merge in renderDocumentFile and
+// CSS inheritance. Box-only properties (padding/margin/background/border/width/
+// display) are intentionally excluded — they must not turn child paragraphs
+// into shaded/padded runs.
+const INHERITABLE_STYLE_KEYS = [
+  'color',
+  'font-family',
+  'font-size',
+  'font-weight',
+  'font-style',
+  'line-height',
+  'letter-spacing',
+  'text-align',
+];
+
+// Merge the container's inheritable text styles into each child VNode's style
+// (the child's own value wins). VText children have no style and are left as-is.
+const propagateInheritableStyles = (vNode) => {
+  const style = (isVNode(vNode) && vNode.properties && vNode.properties.style) || null;
+  if (!style) return;
+  const inherited = {};
+  INHERITABLE_STYLE_KEYS.forEach((key) => {
+    if (style[key] !== undefined) inherited[key] = style[key];
+  });
+  if (Object.keys(inherited).length === 0) return;
+  vNode.children.forEach((child) => {
+    if (isVNode(child) && child.properties) {
+      if (!child.properties.style) child.properties.style = {};
+      child.properties.style = { ...inherited, ...child.properties.style };
+    }
+  });
+};
+
 async function findXMLEquivalent(docxDocumentInstance, vNode, xmlFragment, imageOptions = null) {
   // Use default options if not provided
   if (!imageOptions) {
@@ -599,6 +634,9 @@ async function findXMLEquivalent(docxDocumentInstance, vNode, xmlFragment, image
       return;
   }
   if (vNodeHasChildren(vNode)) {
+    // Container (e.g. <div> wrapper) — cascade its inheritable text styles onto
+    // children so the paragraphs they build inherit line-height/color/align/etc.
+    propagateInheritableStyles(vNode);
     // eslint-disable-next-line no-plusplus
     for (let index = 0; index < vNode.children.length; index++) {
       const childVNode = vNode.children[index];

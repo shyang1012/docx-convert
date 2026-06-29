@@ -1,6 +1,6 @@
 {
   "name": "@shyang1012/docx-convert",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Convert an HTML string into a .docx (Office Open XML) document — pure JavaScript, no headless browser, LibreOffice, or native binaries.",
   "keywords": [
     "docx-convert",
