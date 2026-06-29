@@ -37,6 +37,7 @@ import {
   cmToTWIP,
   cmRegex,
   mmToTWIP,
+  mmRegex,
   inchRegex,
   inchToTWIP,
   cmToHIP,
@@ -339,37 +340,45 @@ const buildTextShadow = () =>
     .up();
 
 // eslint-disable-next-line consistent-return
+// CSS line-height → { line, lineRule } for the OOXML paragraph <w:spacing>.
+//  - unitless number / percentage → a MULTIPLE of a single line, expressed in
+//    240ths with lineRule="auto" (CSS multiplier semantics; font-size independent).
+//  - absolute length (px/pt/cm/mm/in/em) → an exact-ish line height in TWIP with
+//    lineRule="atLeast".
+// Returning lineRule alongside the value is required: emitting an absolute TWIP
+// value under lineRule="auto" makes Word read it as a 240ths multiple (wrong).
 const fixupLineHeight = (lineHeight, fontSize) => {
-  // FIXME: If line height is anything other than a number
+  const value = `${lineHeight}`.trim();
   // eslint-disable-next-line no-restricted-globals
-  if (!isNaN(lineHeight)) {
-    if (fontSize) {
-      const actualLineHeight = +lineHeight * fontSize;
-
-      return HIPToTWIP(actualLineHeight);
-    } else {
-      // 240 TWIP or 12 point is default line height
-      return +lineHeight * 240;
-    }
-  } else if (pointRegex.test(lineHeight)) {
-    const matchedParts = lineHeight.match(pointRegex);
-    return pointToTWIP(matchedParts[1]);
-  } else if (pixelRegex.test(lineHeight)) {
-    const matchedParts = lineHeight.match(pixelRegex);
-    return pixelToTWIP(matchedParts[1]);
-  } else if (cmRegex.test(lineHeight)) {
-    const matchedParts = lineHeight.match(cmRegex);
-    return cmToTWIP(matchedParts[1]);
-  } else if (inchRegex.test(lineHeight)) {
-    const matchedParts = lineHeight.match(inchRegex);
-    return inchToTWIP(matchedParts[1]);
-  } else if (percentageRegex.test(lineHeight)) {
-    const matchedParts = lineHeight.match(percentageRegex);
-    return HIPToTWIP((matchedParts[1] * fontSize) / 100);
-  } else {
-    // 240 TWIP or 12 point is default line height
-    return 240;
+  if (lineHeight !== undefined && lineHeight !== null && value !== '' && !isNaN(value)) {
+    // unitless multiplier → n single-lines (240ths)
+    return { line: Math.round(Number(value) * 240), lineRule: 'auto' };
   }
+  if (percentageRegex.test(value)) {
+    const pct = parseFloat(value.match(percentageRegex)[1]);
+    return { line: Math.round((pct / 100) * 240), lineRule: 'auto' };
+  }
+  if (pointRegex.test(value)) {
+    return { line: pointToTWIP(value.match(pointRegex)[1]), lineRule: 'atLeast' };
+  }
+  if (pixelRegex.test(value)) {
+    return { line: pixelToTWIP(value.match(pixelRegex)[1]), lineRule: 'atLeast' };
+  }
+  if (cmRegex.test(value)) {
+    return { line: cmToTWIP(value.match(cmRegex)[1]), lineRule: 'atLeast' };
+  }
+  if (mmRegex.test(value)) {
+    return { line: mmToTWIP(value.match(mmRegex)[1]), lineRule: 'atLeast' };
+  }
+  if (inchRegex.test(value)) {
+    return { line: inchToTWIP(value.match(inchRegex)[1]), lineRule: 'atLeast' };
+  }
+  if (/(-?[\d.]+)em$/i.test(value)) {
+    const em = parseFloat(value);
+    return { line: HIPToTWIP(em * (fontSize || defaultFontSize)), lineRule: 'atLeast' };
+  }
+  // default single line
+  return { line: 240, lineRule: 'auto' };
 };
 
 // CSS letter-spacing → TWIP for the OOXML run property <w:spacing w:val>
@@ -657,12 +666,14 @@ const modifiedStyleAttributesBuilder = (docxDocumentInstance, vNode, attributes,
       } else if (vNodeStyleKey === 'font-size') {
         modifiedAttributes.fontSize = fixupFontSize(vNodeStyleValue, docxDocumentInstance);
       } else if (vNodeStyleKey === 'line-height') {
-        modifiedAttributes.lineHeight = fixupLineHeight(
+        const resolvedLineHeight = fixupLineHeight(
           vNodeStyleValue,
           vNodeStyle['font-size']
             ? fixupFontSize(vNodeStyle['font-size'], docxDocumentInstance)
             : null
         );
+        modifiedAttributes.lineHeight = resolvedLineHeight.line;
+        modifiedAttributes.lineRule = resolvedLineHeight.lineRule;
       } else if (vNodeStyleKey === 'letter-spacing') {
         modifiedAttributes.letterSpacing = fixupLetterSpacing(
           vNodeStyleValue,
@@ -1465,7 +1476,7 @@ const buildNumberingInstances = () =>
     .up()
     .up();
 
-const buildSpacing = (lineSpacing, beforeSpacing, afterSpacing) => {
+const buildSpacing = (lineSpacing, beforeSpacing, afterSpacing, lineRule = 'auto') => {
   const spacingFragment = fragment({ namespaceAlias: { w: namespaces.w } }).ele('@w', 'spacing');
 
   if (typeof lineSpacing === 'number' && lineSpacing >= 0) {
@@ -1478,7 +1489,7 @@ const buildSpacing = (lineSpacing, beforeSpacing, afterSpacing) => {
     spacingFragment.att('@w', 'after', afterSpacing);
   }
 
-  spacingFragment.att('@w', 'lineRule', 'auto').up();
+  spacingFragment.att('@w', 'lineRule', lineRule).up();
 
   return spacingFragment;
 };
@@ -1637,10 +1648,13 @@ const buildParagraphProperties = (attributes, docxDocumentInstance) => {
     const spacingFragment = buildSpacing(
       attributes.lineHeight,
       attributes.beforeSpacing,
-      attributes.afterSpacing
+      attributes.afterSpacing,
+      attributes.lineRule
     );
     // eslint-disable-next-line no-param-reassign
     delete attributes.lineHeight;
+    // eslint-disable-next-line no-param-reassign
+    delete attributes.lineRule;
     // eslint-disable-next-line no-param-reassign
     delete attributes.beforeSpacing;
     // eslint-disable-next-line no-param-reassign

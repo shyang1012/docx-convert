@@ -7,7 +7,7 @@
 import JSZip from 'jszip';
 import HTMLtoDOCX from '../index.js';
 import { parseDOCX } from './helpers/docx-assertions.js';
-import { fixupLetterSpacing } from '../src/helpers/xml-builder.js';
+import { fixupLetterSpacing, fixupLineHeight } from '../src/helpers/xml-builder.js';
 
 const documentXml = async (html, opts) => (await parseDOCX(await HTMLtoDOCX(html, null, opts))).xml;
 const stylesXml = async (opts) => {
@@ -27,6 +27,48 @@ describe('fixupLetterSpacing (CSS length → TWIP, negatives allowed)', () => {
     expect(fixupLetterSpacing('0')).toBe(0);
     expect(fixupLetterSpacing(10)).toBe(10); // unitless number → twip
     expect(fixupLetterSpacing(undefined)).toBe(0);
+  });
+});
+
+describe('fixupLineHeight → { line, lineRule } (faithful CSS line-height)', () => {
+  test('unit handling', () => {
+    // unitless / % → multiple of single line (240ths), auto
+    expect(fixupLineHeight(1.5)).toEqual({ line: 360, lineRule: 'auto' });
+    expect(fixupLineHeight('1.625')).toEqual({ line: 390, lineRule: 'auto' });
+    expect(fixupLineHeight('150%')).toEqual({ line: 360, lineRule: 'auto' });
+    // absolute units → exact-ish height, atLeast
+    expect(fixupLineHeight('28px')).toEqual({ line: 420, lineRule: 'atLeast' });
+    expect(fixupLineHeight('24pt')).toEqual({ line: 480, lineRule: 'atLeast' });
+  });
+  test('multiplier is font-size independent (no 0 bug)', () => {
+    // % must NOT collapse to 0 when no font size is in context
+    expect(fixupLineHeight('150%', null).line).toBe(360);
+    // unitless with a font size still resolves as a multiple, not absolute twips
+    expect(fixupLineHeight(1.5, 22)).toEqual({ line: 360, lineRule: 'auto' });
+  });
+});
+
+describe('inline line-height → paragraph <w:spacing>', () => {
+  test('px line-height preserved as atLeast', async () => {
+    const xml = await documentXml('<p style="line-height:28px">x</p>');
+    expect(xml).toMatch(/<w:spacing[^>]*w:line="420"[^>]*w:lineRule="atLeast"/);
+  });
+  test('unitless line-height as auto multiple', async () => {
+    const xml = await documentXml('<p style="line-height:1.625">x</p>');
+    expect(xml).toMatch(/<w:spacing[^>]*w:line="390"[^>]*w:lineRule="auto"/);
+  });
+  test('percentage line-height does not collapse to 0', async () => {
+    const xml = await documentXml('<p style="line-height:150%">x</p>');
+    expect(xml).toMatch(/<w:spacing[^>]*w:line="360"[^>]*w:lineRule="auto"/);
+    expect(xml).not.toMatch(/w:line="0"/);
+  });
+  test('banner div (background → layout table) keeps the line value', async () => {
+    // The CodeWiz title banner is a background div → layout-to-table single cell;
+    // its line-height must reach the cell paragraph.
+    const xml = await documentXml(
+      '<div style="background-color:rgb(26,82,118); font-size:18px; line-height:28px; padding:8px; text-align:center">발주서</div>'
+    );
+    expect(xml).toMatch(/<w:spacing[^>]*w:line="420"[^>]*w:lineRule="atLeast"/);
   });
 });
 
